@@ -1,19 +1,46 @@
+import { Suspense } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Role } from "@prisma/client";
-import { Plus } from "lucide-react";
+import { Plus, TriangleAlert } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { can, defaultRouteFor } from "@/lib/permissions";
 import { db } from "@/lib/db";
+import { formatCalendarDate, todayInBangkok } from "@/lib/date";
+import { toCalendarString } from "@/lib/format";
+import {
+  completionRate,
+  loadStatusCounts,
+  loadTaskPage,
+  loadWorkload,
+  parseTaskFilters,
+} from "@/server/services/dashboard";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
-import { Button } from "@/components/ui/button";
+import { StatusDonut } from "@/components/dashboard/status-donut";
+import { WorkloadList } from "@/components/dashboard/workload-list";
+import { TaskFilters } from "@/components/dashboard/task-filters";
+import { TaskTable } from "@/components/dashboard/task-table";
+import { buttonVariants } from "@/components/ui/button";
 import {
   TASK_STATUS_META,
   TASK_STATUS_ORDER,
   TOTAL_TASKS_META,
 } from "@/lib/constants";
 
-export default async function DashboardPage() {
+type SearchParams = {
+  q?: string;
+  member?: string;
+  status?: string;
+  priority?: string;
+  page?: string;
+};
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -22,25 +49,39 @@ export default async function DashboardPage() {
     redirect(defaultRouteFor(user.role as Role));
   }
 
-  const grouped = await db.task.groupBy({
-    by: ["status"],
-    where: { archivedAt: null },
-    _count: { _all: true },
-  });
-  const countOf = (status: (typeof TASK_STATUS_ORDER)[number]) =>
-    grouped.find((row) => row.status === status)?._count._all ?? 0;
-  const total = grouped.reduce((sum, row) => sum + row._count._all, 0);
+  const params = await searchParams;
+  const filters = parseTaskFilters(params);
+
+  const [{ counts, total }, workload, page] = await Promise.all([
+    loadStatusCounts(db),
+    loadWorkload(db),
+    loadTaskPage(db, filters),
+  ]);
+
+  const today = formatCalendarDate(todayInBangkok());
+  const members = workload.map((row) => ({ id: row.id, name: row.name }));
+
+  const buildPageHref = (target: number) => {
+    const query = new URLSearchParams();
+    if (filters.search) query.set("q", filters.search);
+    if (filters.assigneeId) query.set("member", filters.assigneeId);
+    if (filters.status) query.set("status", filters.status);
+    if (filters.priority) query.set("priority", filters.priority);
+    if (target > 1) query.set("page", String(target));
+    const qs = query.toString();
+    return qs ? `/dashboard?${qs}` : "/dashboard";
+  };
 
   return (
     <>
       <PageHeader
         title="ภาพรวม"
-        description="สรุปสถานะงานและภาระงานของทีมทั้งหมด"
+        description="สรุปสถานะงาน ภาระงานรายบุคคล และรายการงานทั้งหมดของทีม"
         action={
-          <Button>
+          <Link href="/board" className={buttonVariants()}>
             <Plus size={16} strokeWidth={2} />
             มอบหมายงานใหม่
-          </Button>
+          </Link>
         }
       />
 
@@ -59,7 +100,7 @@ export default async function DashboardPage() {
               key={status}
               label={meta.label}
               caption={meta.caption}
-              count={countOf(status)}
+              count={counts[status]}
               icon={meta.icon}
               mark={meta.mark}
             />
@@ -67,9 +108,54 @@ export default async function DashboardPage() {
         })}
       </div>
 
-      <p className="text-muted-foreground mt-6 text-sm">
-        โดนัทชาร์ต ภาระงานรายบุคคล และตารางงานจะถูกสร้างใน Phase 6
-      </p>
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <section className="border-line bg-surface rounded-[18px] border p-6 shadow-sm">
+          <h2 className="mb-4 text-[15.5px] font-bold">
+            สัดส่วนสถานะงานทั้งหมด
+          </h2>
+          <StatusDonut
+            counts={counts}
+            total={total}
+            completion={completionRate(counts, total)}
+          />
+        </section>
+
+        <section className="border-line bg-surface rounded-[18px] border p-6 shadow-sm">
+          <h2 className="mb-4 text-[15.5px] font-bold">ภาระงานรายบุคคล</h2>
+          <WorkloadList rows={workload} />
+        </section>
+      </div>
+
+      <section className="border-line bg-surface mt-6 rounded-[18px] border p-6 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-[15.5px] font-bold">
+            งานทั้งหมดของทีม
+            {page.overdueCount > 0 ? (
+              <span className="text-danger-ink ml-2 inline-flex items-center gap-1 text-xs font-bold">
+                <TriangleAlert size={13} strokeWidth={2} />
+                เลยกำหนด {page.overdueCount} งาน
+              </span>
+            ) : null}
+          </h2>
+          {/* useSearchParams needs a boundary so the shell can stream first. */}
+          <Suspense fallback={null}>
+            <TaskFilters members={members} />
+          </Suspense>
+        </div>
+
+        <TaskTable
+          rows={page.rows.map((row) => ({
+            ...row,
+            startDate: formatCalendarDate(row.startDate),
+            dueDate: toCalendarString(row.dueDate),
+          }))}
+          today={today}
+          page={filters.page}
+          pageCount={page.pageCount}
+          totalCount={page.totalCount}
+          buildPageHref={buildPageHref}
+        />
+      </section>
     </>
   );
 }
