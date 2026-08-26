@@ -33,6 +33,7 @@ import {
   updateTaskAction,
   deleteTaskAction,
 } from "@/server/actions/task";
+import { ProgressSection } from "./progress-section";
 import type { BoardTaskView, MemberOption, GameOption } from "./types";
 
 const PRIORITY_ORDER: Priority[] = [
@@ -59,6 +60,7 @@ export function TaskDialog({
   games,
   canAssign,
   today,
+  onSaved,
 }: {
   state: TaskDialogState;
   onClose: () => void;
@@ -66,6 +68,8 @@ export function TaskDialog({
   games: GameOption[];
   canAssign: boolean;
   today: string;
+  /** Lets the board refresh its progress counts after an entry is added. */
+  onSaved: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const open = state.mode !== "closed";
@@ -294,9 +298,11 @@ export function TaskDialog({
           </div>
 
           {editing ? (
-            <p className="text-muted-foreground border-line border-t pt-4 text-xs">
-              ส่วนความคืบหน้ารายวันจะเพิ่มใน Phase 5
-            </p>
+            <ProgressSection
+              taskId={editing.id}
+              today={today}
+              onSaved={onSaved}
+            />
           ) : null}
 
           <DialogFooter className="gap-2">

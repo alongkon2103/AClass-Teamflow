@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -65,6 +66,7 @@ export function Board({
   today: string;
   defaultAssigneeId: string | null;
 }) {
+  const router = useRouter();
   const [dialog, setDialog] = useState<TaskDialogState>({ mode: "closed" });
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -244,6 +246,7 @@ export function Board({
         games={games}
         canAssign={canAssign}
         today={today}
+        onSaved={() => router.refresh()}
       />
     </>
   );

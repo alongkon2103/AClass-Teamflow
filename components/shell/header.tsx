@@ -6,6 +6,7 @@ import { Logo } from "@/components/shared/logo";
 import { Avatar } from "@/components/shared/avatar";
 import { NavTabs } from "@/components/shell/nav-tabs";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
+import { NotificationBell } from "@/components/shell/notification-bell";
 import { defaultRouteFor } from "@/lib/permissions";
 
 type HeaderUser = {
@@ -37,6 +38,7 @@ export function Header({ user }: { user: HeaderUser }) {
 
         <div className="flex shrink-0 items-center gap-2">
           <ThemeToggle />
+          <NotificationBell />
 
           <div className="hidden text-right lg:block">
             <div className="text-muted-foreground text-[11px]">
