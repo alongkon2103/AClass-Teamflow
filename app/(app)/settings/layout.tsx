@@ -32,6 +32,12 @@ export default async function SettingsLayout({
         >
           คลังเกม
         </Link>
+        <Link
+          href="/account"
+          className="border-line hover:bg-hover rounded-xl border px-3 py-2 text-[13px] font-semibold"
+        >
+          บัญชีของฉัน
+        </Link>
       </nav>
       {children}
     </>

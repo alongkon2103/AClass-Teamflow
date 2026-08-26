@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { logoutAction } from "@/server/actions/auth";
 import { Logo } from "@/components/shared/logo";
@@ -40,13 +40,28 @@ export function Header({ user }: { user: HeaderUser }) {
           <ThemeToggle />
           <NotificationBell />
 
-          <div className="hidden text-right lg:block">
-            <div className="text-muted-foreground text-[11px]">
-              {isLeader ? "หัวหน้าทีม" : (user.jobTitle ?? "ทีมงาน")}
-            </div>
-            <div className="text-[13px] font-bold">{user.name}</div>
-          </div>
-          <Avatar user={user} size={36} />
+          <Link
+            href={isLeader ? "/settings/members" : "/account"}
+            aria-label={isLeader ? "ตั้งค่าทีม" : "บัญชีของฉัน"}
+            title={isLeader ? "ตั้งค่าทีม" : "บัญชีของฉัน"}
+            className="border-line bg-hover text-ink hover:bg-primary-soft inline-flex size-10 items-center justify-center rounded-xl border transition-colors duration-150"
+          >
+            <Settings size={16} strokeWidth={2} />
+          </Link>
+
+          <Link
+            href="/account"
+            className="flex items-center gap-2 rounded-xl"
+            aria-label="บัญชีของฉัน"
+          >
+            <span className="hidden text-right lg:block">
+              <span className="text-muted-foreground block text-[11px]">
+                {isLeader ? "หัวหน้าทีม" : (user.jobTitle ?? "ทีมงาน")}
+              </span>
+              <span className="block text-[13px] font-bold">{user.name}</span>
+            </span>
+            <Avatar user={user} size={36} />
+          </Link>
 
           <form action={logoutAction}>
             <button

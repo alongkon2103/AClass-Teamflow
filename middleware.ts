@@ -34,6 +34,12 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(home, nextUrl));
   }
 
+  // A leader-issued temporary password must be replaced before anything else.
+  const isAccountPage = nextUrl.pathname.startsWith("/account");
+  if (token?.user?.mustChangePassword && !isAccountPage) {
+    return NextResponse.redirect(new URL("/account", nextUrl));
+  }
+
   // Members never reach leader-only areas, even by typing the URL.
   const isLeaderOnly = LEADER_ONLY_PREFIXES.some(
     (prefix) =>
