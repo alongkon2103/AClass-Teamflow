@@ -26,6 +26,14 @@ const appFields = (token: Record<string, unknown>) =>
   token as Record<string, unknown> & AppTokenFields;
 
 export const authConfig = {
+  /**
+   * Auth.js refuses requests from an unrecognised Host in production unless the
+   * host is trusted. TeamFlow is self-hosted behind a reverse proxy/tunnel, so
+   * the forwarded host is the real one — without this, every sign-in fails in
+   * production with UntrustedHost while working fine in development.
+   * Set AUTH_URL as well so generated callback URLs are absolute and correct.
+   */
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",

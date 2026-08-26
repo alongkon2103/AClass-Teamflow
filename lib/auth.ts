@@ -7,6 +7,7 @@ import { authConfig } from "@/auth.config";
 import { db } from "@/lib/db";
 import { loginSchema } from "@/lib/validators/auth";
 import { rateLimit } from "@/lib/rate-limit";
+import { env } from "@/lib/env";
 import type { Actor } from "@/lib/permissions";
 
 /**
@@ -48,7 +49,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) throw new InvalidCredentialsError();
 
         const ip = await clientIp();
-        if (!rateLimit(`login:${ip}`).allowed) {
+        if (!rateLimit(`login:${ip}`, env.AUTH_RATE_LIMIT_MAX).allowed) {
           throw new TooManyAttemptsError();
         }
 

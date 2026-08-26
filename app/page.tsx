@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
-import type { Role } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { defaultRouteFor } from "@/lib/permissions";
 
-// The root route has no UI of its own: send each role to its landing page.
+/**
+ * The root has no UI: it sends each visitor to where they belong. Resolving the
+ * role here avoids bouncing a signed-in user through /login and back, which
+ * added two extra round trips to every sign-in.
+ */
 export default async function RootPage() {
   const user = await getCurrentUser();
-  redirect(user ? defaultRouteFor(user.role as Role) : "/login");
+  redirect(user ? defaultRouteFor(user.role) : "/login");
 }

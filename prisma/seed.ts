@@ -25,13 +25,22 @@ async function main() {
   const day = (offset: number) => addCalendarDays(today, offset);
 
   // --- Reset (dev only) in FK-dependency order ------------------------------
+  // Accounts created outside the seed (a real leader, for example) are left
+  // alone, so re-seeding for tests never destroys a working login.
+  const SEEDED_EMAILS = [
+    "leader@teamflow.app",
+    "napa@teamflow.app",
+    "thana@teamflow.app",
+    "ploy@teamflow.app",
+  ];
+
   await prisma.notification.deleteMany();
   await prisma.progressEntry.deleteMany();
   await prisma.feedback.deleteMany();
   await prisma.leave.deleteMany();
   await prisma.task.deleteMany();
   await prisma.game.deleteMany();
-  await prisma.user.deleteMany();
+  await prisma.user.deleteMany({ where: { email: { in: SEEDED_EMAILS } } });
 
   // --- Users ----------------------------------------------------------------
   const leader = await prisma.user.create({

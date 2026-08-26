@@ -26,6 +26,9 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  // Login attempts allowed per minute per IP (SPEC 5.1 sets the default to 5).
+  // Raised only for automated test runs, which hammer one IP by design.
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
 
   // --- Object storage for progress images (wired up in Phase 5; optional for now) ---
   STORAGE_PROVIDER: z.enum(["s3", "vercel-blob"]).optional(),

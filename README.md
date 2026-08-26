@@ -1,28 +1,25 @@
 # TeamFlow
 
-ระบบจัดการงานของทีมพัฒนาเกมขนาดเล็ก — Kanban board, ปฏิทินความคืบหน้า/การลา,
+ระบบจัดการงานของทีมพัฒนาเกมขนาดเล็ก (4–15 คน) — Kanban board, ปฏิทินความคืบหน้าและวันลา,
 คลังเกม, customer feedback และการแจ้งเตือน แยกสิทธิ์ระหว่างหัวหน้าทีม (`LEADER`)
-และทีมงาน (`MEMBER`) โดยกรองสิทธิ์ที่ฝั่ง server ทุก query
-
-> สถานะ: อยู่ระหว่างพัฒนา (Phase 0–2 — scaffold, database layer, auth + RBAC)
+และทีมงาน (`MEMBER`) โดย**กรองสิทธิ์ที่ฝั่ง server ทุก query** ไม่ได้พึ่งการซ่อนปุ่มใน UI
 
 ## Tech stack
 
 - **Next.js 15** (App Router, Server Components + Server Actions)
-- **TypeScript** strict mode
-- **PostgreSQL 16** + **Prisma** (schema / migrations / seed)
-- **Auth.js (NextAuth v5)** — Credentials provider, JWT session, `bcryptjs`
-- **Tailwind CSS v4** + **shadcn/ui** (Base UI) + **lucide-react**
-- **react-hook-form** + **zod** (schema เดียวใช้ทั้ง client และ server)
-- **Vitest** (unit) + **Playwright** (e2e)
+- **TypeScript** strict mode — ไม่มี `any` และไม่มี `@ts-ignore`
+- **PostgreSQL 16** + **Prisma 6** (schema / migrations / seed)
+- **Auth.js (NextAuth v5)** — Credentials provider, JWT session, `bcryptjs` cost 12
+- **Tailwind CSS v4** + **shadcn/ui** + **lucide-react** (ไม่มี emoji ใน UI)
+- **react-hook-form** + **zod** — schema เดียวใช้ทั้ง client และ server
+- **@dnd-kit** สำหรับลากวางบนบอร์ด
+- **Vitest** (138 unit tests) + **Playwright** (13 e2e tests)
 
 ## Requirements
 
 - Node.js 20+
-- pnpm 10 (`corepack use pnpm@10` หรือ `corepack prepare pnpm@10.15.1 --activate`)
-- ฐานข้อมูล PostgreSQL 16 — เลือกอย่างใดอย่างหนึ่ง:
-  - **Supabase** (ทีมนี้ใช้สำหรับ dev) — เอา connection string มาใส่ใน `.env`
-  - **Docker** ในเครื่อง — `docker compose up -d` (มาพร้อม Adminer ที่ `:8080`)
+- pnpm 10 — `corepack prepare pnpm@10.15.1 --activate`
+- PostgreSQL 16
 
 ## Setup ตั้งแต่ศูนย์
 
@@ -30,42 +27,23 @@
 # 1) ติดตั้ง dependencies
 pnpm install
 
-# 2) เตรียมไฟล์ .env
+# 2) เตรียม .env
 cp .env.example .env
-#    - ใส่ DATABASE_URL / DIRECT_URL (Supabase หรือ docker)
+#    - ใส่ DATABASE_URL / DIRECT_URL
 #    - สร้าง AUTH_SECRET:  openssl rand -base64 32
 
-# 3) (ทางเลือก) ถ้าใช้ docker แทน Supabase
+# 3) (ทางเลือก) ใช้ Postgres ในเครื่องผ่าน docker
 docker compose up -d
 
-# 4) รัน migration + seed
-pnpm prisma migrate deploy   # หรือ `pnpm prisma migrate dev` ตอนพัฒนา schema
-pnpm prisma db seed
+# 4) migration + seed
+pnpm db:migrate      # production ใช้ตัวนี้ (prisma migrate deploy)
+pnpm db:seed
 
-# 5) รัน dev server
+# 5) รัน
 pnpm dev
 ```
 
 เปิด http://localhost:3000
-
-### หมายเหตุ Supabase
-
-Supabase มี connection string สองแบบ — ตั้งค่าให้ถูก มิฉะนั้น migration จะพัง:
-
-- `DATABASE_URL` → **Connection pooling** (port `6543`) ต่อท้ายด้วย
-  `?pgbouncer=true&connection_limit=1` (ใช้ตอน runtime)
-- `DIRECT_URL` → **Direct connection** (port `5432`) (Prisma ใช้ตอน migrate)
-
-## Scripts
-
-| คำสั่ง           | หน้าที่                          |
-| ---------------- | -------------------------------- |
-| `pnpm dev`       | รัน dev server                   |
-| `pnpm build`     | build production                 |
-| `pnpm start`     | รัน production server            |
-| `pnpm lint`      | ESLint                           |
-| `pnpm typecheck` | ตรวจ TypeScript (`tsc --noEmit`) |
-| `pnpm format`    | จัดรูปแบบด้วย Prettier           |
 
 ## บัญชีทดสอบ (หลัง seed)
 
@@ -78,14 +56,118 @@ Supabase มี connection string สองแบบ — ตั้งค่า�
 | MEMBER | thana@teamflow.app  | ธนา รักดี      | Designer    |
 | MEMBER | ploy@teamflow.app   | พลอย ศิริวงศ์  | QA Engineer |
 
+`pnpm db:seed` จะรีเซ็ตเฉพาะบัญชีสี่รายการนี้ บัญชีอื่นที่สร้างเองจะไม่ถูกลบ
+
+สร้าง LEADER คนแรกบนเครื่อง production:
+
+```bash
+pnpm user:create <email> <password> <ชื่อ> LEADER "ตำแหน่ง"
+```
+
+## Scripts
+
+| คำสั่ง                         | หน้าที่                            |
+| ------------------------------ | ---------------------------------- |
+| `pnpm dev`                     | dev server                         |
+| `pnpm build` / `pnpm start`    | build และรัน production            |
+| `pnpm lint` / `pnpm typecheck` | ESLint / TypeScript                |
+| `pnpm test`                    | unit tests (Vitest)                |
+| `pnpm test:e2e`                | seed แล้วรัน e2e (Playwright)      |
+| `pnpm db:migrate`              | `prisma migrate deploy`            |
+| `pnpm db:seed`                 | ใส่ข้อมูลตัวอย่าง                  |
+| `pnpm user:create`             | สร้าง/รีเซ็ตผู้ใช้จาก command line |
+
+## การทดสอบ
+
+**Unit** ครอบคลุม business logic ล้วน: RBAC, ลำดับ sortOrder, การ normalize วันที่,
+contrast ของ design tokens, การ generate ticket number, การหาช่วงวันลาที่ทับซ้อน
+
+**E2E** รันบน production build ไม่ใช่ dev server — Fast Refresh จะ recompile เมื่อไฟล์
+เปลี่ยน (รวมถึงไฟล์ที่ Playwright เขียนเอง) ทำให้ Server Action id ที่ค้างอยู่ใช้ไม่ได้และฟอร์มค้าง
+ไฟล์ผลลัพธ์จึงถูกเขียนนอก repo ด้วยเหตุผลเดียวกัน
+
+```bash
+pnpm build && pnpm start          # เตรียม server
+pnpm db:seed                      # ข้อมูลตั้งต้นที่ทดสอบคาดหวัง
+E2E_BASE_URL=http://localhost:3000 pnpm exec playwright test
+```
+
+หรือให้ Playwright จัดการ server เอง: `pnpm test:e2e`
+
+> e2e ล็อกอินซ้ำหลายครั้งจาก IP เดียว ซึ่งชนกับ rate limit 5 ครั้ง/นาที
+> จึงต้องตั้ง `AUTH_RATE_LIMIT_MAX` ให้สูงขึ้นตอนทดสอบ (config จัดการให้แล้ว)
+> **ห้ามตั้งค่านี้สูงบน production**
+
+## Deploy
+
+### 1. Environment
+
+ตั้งค่าตาม `.env.example` ให้ครบ ตัวที่บังคับ:
+
+| ตัวแปร         | หมายเหตุ                                                                                       |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| `DATABASE_URL` | connection ที่แอปใช้ตอนรัน (Supabase: pooler port 6543 + `?pgbouncer=true&connection_limit=1`) |
+| `DIRECT_URL`   | connection ตรงสำหรับ migration (Supabase: port 5432)                                           |
+| `AUTH_SECRET`  | `openssl rand -base64 32` — อย่าใช้ค่าเดียวกับ dev                                             |
+| `AUTH_URL`     | origin จริงของระบบ เช่น `https://teamflow.example.com`                                         |
+
+env ถูก validate ด้วย zod ตอน boot ถ้าขาดตัวไหน process จะหยุดทันทีพร้อมบอกชื่อตัวแปร
+
+### 2. Migration
+
+```bash
+pnpm db:migrate     # prisma migrate deploy — ไม่แตะข้อมูลเดิม
+```
+
+### 3. Build และรัน
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+pnpm start
+```
+
+### 4. อยู่หลัง reverse proxy / tunnel
+
+`trustHost: true` ถูกเปิดไว้ใน `auth.config.ts` เพราะ Auth.js v5 จะปฏิเสธทุก request
+ใน production ถ้า Host ไม่ตรงกับที่รู้จัก (`UntrustedHost`) — อาการคือ login ไม่ผ่าน
+ทั้งที่ dev ปกติดี ตั้ง `AUTH_URL` ควบคู่ด้วยเพื่อให้ callback URL เป็น absolute ที่ถูกต้อง
+
+ให้ proxy ส่ง `X-Forwarded-For` มาด้วย เพราะ rate limit ของหน้า login อ่านค่าจาก header นี้
+
+### 5. ที่เก็บรูปความคืบหน้า
+
+ค่าเริ่มต้นเก็บลงดิสก์ที่ `.uploads/` และเสิร์ฟผ่าน `/api/uploads/...` หลังการตรวจ session
+เหมาะกับการ self-host แต่ต้อง**ผูก volume ให้ถาวร** ไม่งั้นรูปหายเมื่อ redeploy
+
+ถ้าใช้ cloud ให้ตั้ง `STORAGE_PROVIDER`:
+
+- `vercel-blob` + `BLOB_READ_WRITE_TOKEN`
+- `s3` + `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_PUBLIC_URL`
+
+ทั้งสองแบบเก็บเฉพาะ URL ลงฐานข้อมูล ไม่มี base64 ใน DB
+
+### 6. ข้อจำกัดที่ควรรู้
+
+Rate limit ของ login เก็บสถานะไว้ใน memory ของ process — ถูกต้องสำหรับ instance เดียว
+ถ้าจะ scale หลาย instance ต้องเปลี่ยนไปใช้ store ร่วม (Redis/Upstash) ก่อน
+
 ## โครงสร้างโปรเจกต์
 
-ดู [`SPEC.md`](SPEC.md) สำหรับข้อกำหนดฉบับเต็ม โครงสร้างหลัก:
+```
+app/
+  (auth)/login/          หน้าเข้าสู่ระบบ
+  (app)/                 หน้าที่ต้องล็อกอิน (header + nav + session guard)
+    dashboard/ board/ calendar/ feedback/ account/ settings/
+  api/auth/ api/upload/ api/uploads/
+components/  ui/ (shadcn) · kanban/ · calendar/ · feedback/ · dashboard/ · settings/ · shell/ · shared/
+lib/         auth · db · permissions · date · format · storage/ · validators/ · env
+server/      actions/ (validate + authz)  ·  services/ (business logic ล้วน เทสได้)
+prisma/      schema · migrations · seed
+tests/       unit/ (Vitest) · e2e/ (Playwright)
+```
 
-```
-app/        — routes (App Router)
-components/  — UI components (ui/, kanban/, calendar/, feedback/, shared/)
-lib/         — auth, db, permissions, date helpers, zod validators, env
-server/      — actions/ (validate + authz) และ services/ (business logic ล้วน)
-prisma/      — schema, migrations, seed
-```
+**กฎ**: Server Action ทำหน้าที่ validate + ตรวจสิทธิ์ + เรียก service เท่านั้น
+business logic อยู่ใน `server/services/` ทั้งหมด จึง unit test ได้โดยไม่ต้อง mock Next.js
+
+ดู [`SPEC.md`](SPEC.md) สำหรับข้อกำหนดฉบับเต็ม
