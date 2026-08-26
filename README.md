@@ -100,6 +100,35 @@ E2E_BASE_URL=http://localhost:3000 pnpm exec playwright test
 
 ## Deploy
 
+### 0. เตรียมเครื่อง VPS (Ubuntu)
+
+Ubuntu มาพร้อม Node เวอร์ชันเก่าและไม่มี pnpm ให้ติดตั้งก่อน:
+
+```bash
+# Node 22 LTS (ที่มากับ apt เป็น Node 18 ซึ่งหมด support แล้ว)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+node -v                                  # ต้องได้ v22.x
+
+# pnpm ผ่าน corepack (เวอร์ชันถูกอ่านจาก packageManager ใน package.json)
+sudo corepack enable
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+corepack prepare pnpm@10.15.1 --activate
+pnpm -v                                  # ต้องได้ 10.15.1
+
+# PM2
+sudo npm install -g pm2
+```
+
+**สร้าง `.env` ให้เสร็จก่อน `pnpm build`** — env ถูก validate ตอนโหลดโมดูล
+ถ้าขาดตัวแปร build จะล้มพร้อมบอกชื่อตัวที่ขาด
+
+```bash
+cp .env.example .env
+nano .env        # ใส่ DATABASE_URL, DIRECT_URL, AUTH_SECRET, AUTH_URL
+openssl rand -base64 32     # ใช้เป็น AUTH_SECRET
+```
+
 ### 1. Environment
 
 ตั้งค่าตาม `.env.example` ให้ครบ ตัวที่บังคับ:
