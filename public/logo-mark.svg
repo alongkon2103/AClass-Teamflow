@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TeamFlow">
+  <rect width="512" height="512" rx="118" fill="#2E7CF6"/>
+  <g fill="#fff">
+    <path d="M180 172 L198 112 L226 146 L256 100 L286 146 L314 112 L332 172 Z"
+          stroke="#fff" stroke-width="10" stroke-linejoin="round"/>
+    <circle cx="256" cy="88" r="15"/>
+    <circle cx="194" cy="102" r="12"/>
+    <circle cx="318" cy="102" r="12"/>
+    <rect x="180" y="182" width="152" height="26" rx="13"/>
+    <path d="M256 216 L400 442 L322 442 L256 330 L190 442 L112 442 Z"
+          stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+  </g>
+  <!-- flow ribbon: a single thick sweep reading as motion across the A -->
+  <path d="M108 352 C196 352 244 350 296 318 C348 286 398 276 442 292"
+        fill="none" stroke="#fff" stroke-width="38" stroke-linecap="round"/>
+  <path d="M78 402 L150 402"
+        fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round"/>
+</svg>

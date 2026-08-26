@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { Header } from "@/components/shell/header";
+import { Toaster } from "@/components/ui/sonner";
 
 /**
  * Session guard for every authenticated page. Middleware already redirects
@@ -21,6 +22,7 @@ export default async function AppLayout({
       <main className="mx-auto w-full max-w-[var(--container-app)] flex-1 px-6 py-6">
         {children}
       </main>
+      <Toaster position="top-center" />
     </div>
   );
 }
