@@ -73,7 +73,7 @@ Supabase มี connection string สองแบบ — ตั้งค่า�
 
 | Role   | Email               | ชื่อ           | ตำแหน่ง     |
 | ------ | ------------------- | -------------- | ----------- |
-| LEADER | leader@teamflow.app | กมล ประสิทธิ์  | หัวหน้าทีม   |
+| LEADER | leader@teamflow.app | กมล ประสิทธิ์  | หัวหน้าทีม  |
 | MEMBER | napa@teamflow.app   | นภา จันทร์เพ็ญ | Developer   |
 | MEMBER | thana@teamflow.app  | ธนา รักดี      | Designer    |
 | MEMBER | ploy@teamflow.app   | พลอย ศิริวงศ์  | QA Engineer |
