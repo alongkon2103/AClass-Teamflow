@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TeamFlow
 
-## Getting Started
+ระบบจัดการงานของทีมพัฒนาเกมขนาดเล็ก — Kanban board, ปฏิทินความคืบหน้า/การลา,
+คลังเกม, customer feedback และการแจ้งเตือน แยกสิทธิ์ระหว่างหัวหน้าทีม (`LEADER`)
+และทีมงาน (`MEMBER`) โดยกรองสิทธิ์ที่ฝั่ง server ทุก query
 
-First, run the development server:
+> สถานะ: อยู่ระหว่างพัฒนา (Phase 0–2 — scaffold, database layer, auth + RBAC)
+
+## Tech stack
+
+- **Next.js 15** (App Router, Server Components + Server Actions)
+- **TypeScript** strict mode
+- **PostgreSQL 16** + **Prisma** (schema / migrations / seed)
+- **Auth.js (NextAuth v5)** — Credentials provider, JWT session, `bcryptjs`
+- **Tailwind CSS v4** + **shadcn/ui** (Base UI) + **lucide-react**
+- **react-hook-form** + **zod** (schema เดียวใช้ทั้ง client และ server)
+- **Vitest** (unit) + **Playwright** (e2e)
+
+## Requirements
+
+- Node.js 20+
+- pnpm 10 (`corepack use pnpm@10` หรือ `corepack prepare pnpm@10.15.1 --activate`)
+- ฐานข้อมูล PostgreSQL 16 — เลือกอย่างใดอย่างหนึ่ง:
+  - **Supabase** (ทีมนี้ใช้สำหรับ dev) — เอา connection string มาใส่ใน `.env`
+  - **Docker** ในเครื่อง — `docker compose up -d` (มาพร้อม Adminer ที่ `:8080`)
+
+## Setup ตั้งแต่ศูนย์
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# 1) ติดตั้ง dependencies
+pnpm install
+
+# 2) เตรียมไฟล์ .env
+cp .env.example .env
+#    - ใส่ DATABASE_URL / DIRECT_URL (Supabase หรือ docker)
+#    - สร้าง AUTH_SECRET:  openssl rand -base64 32
+
+# 3) (ทางเลือก) ถ้าใช้ docker แทน Supabase
+docker compose up -d
+
+# 4) รัน migration + seed
+pnpm prisma migrate deploy   # หรือ `pnpm prisma migrate dev` ตอนพัฒนา schema
+pnpm prisma db seed
+
+# 5) รัน dev server
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+เปิด http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### หมายเหตุ Supabase
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Supabase มี connection string สองแบบ — ตั้งค่าให้ถูก มิฉะนั้น migration จะพัง:
 
-## Learn More
+- `DATABASE_URL` → **Connection pooling** (port `6543`) ต่อท้ายด้วย
+  `?pgbouncer=true&connection_limit=1` (ใช้ตอน runtime)
+- `DIRECT_URL` → **Direct connection** (port `5432`) (Prisma ใช้ตอน migrate)
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| คำสั่ง           | หน้าที่                          |
+| ---------------- | -------------------------------- |
+| `pnpm dev`       | รัน dev server                   |
+| `pnpm build`     | build production                 |
+| `pnpm start`     | รัน production server            |
+| `pnpm lint`      | ESLint                           |
+| `pnpm typecheck` | ตรวจ TypeScript (`tsc --noEmit`) |
+| `pnpm format`    | จัดรูปแบบด้วย Prettier           |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## บัญชีทดสอบ (หลัง seed)
 
-## Deploy on Vercel
+จะเพิ่มในเอกสารเมื่อ seed script พร้อม (Phase 1)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## โครงสร้างโปรเจกต์
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+ดู [`SPEC.md`](SPEC.md) สำหรับข้อกำหนดฉบับเต็ม โครงสร้างหลัก:
+
+```
+app/        — routes (App Router)
+components/  — UI components (ui/, kanban/, calendar/, feedback/, shared/)
+lib/         — auth, db, permissions, date helpers, zod validators, env
+server/      — actions/ (validate + authz) และ services/ (business logic ล้วน)
+prisma/      — schema, migrations, seed
+```
