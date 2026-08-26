@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="lg" className="w-full" disabled={pending}>
+    <Button type="submit" size="lg" className="mt-1 w-full" disabled={pending}>
       <LogIn size={16} strokeWidth={2} />
       {pending ? "กำลังเข้าสู่ระบบ" : "เข้าสู่ระบบ"}
     </Button>
@@ -31,7 +31,12 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
       ) : null}
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">อีเมล</Label>
+        <Label
+          htmlFor="email"
+          className="text-muted-foreground text-xs font-semibold"
+        >
+          อีเมล
+        </Label>
         <Input
           id="email"
           name="email"
@@ -39,26 +44,37 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
           autoComplete="email"
           required
           placeholder="you@teamflow.app"
+          className="bg-input-bg h-11 rounded-xl"
         />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="password">รหัสผ่าน</Label>
+        <Label
+          htmlFor="password"
+          className="text-muted-foreground text-xs font-semibold"
+        >
+          รหัสผ่าน
+        </Label>
         <Input
           id="password"
           name="password"
           type="password"
           autoComplete="current-password"
           required
+          className="bg-input-bg h-11 rounded-xl"
         />
       </div>
 
       {state?.message ? (
         <p
           role="alert"
-          className="bg-destructive/10 text-destructive flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+          className="text-danger-ink flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+          style={{
+            background:
+              "color-mix(in srgb, var(--color-danger) 14%, transparent)",
+          }}
         >
-          <TriangleAlert size={16} strokeWidth={2} />
+          <TriangleAlert size={16} strokeWidth={2} className="shrink-0" />
           {state.message}
         </p>
       ) : null}

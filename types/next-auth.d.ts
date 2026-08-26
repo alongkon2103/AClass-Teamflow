@@ -7,6 +7,10 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
+      // Narrowed from DefaultSession, where both are optional: the credentials
+      // provider always returns them, so the app can rely on them being present.
+      name: string;
+      email: string;
       role: Role;
       jobTitle: string | null;
       avatarColor: string;

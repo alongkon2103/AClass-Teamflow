@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Columns3 } from "lucide-react";
+import { Logo } from "@/components/shared/logo";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
@@ -15,22 +15,20 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-dvh items-center justify-center px-6 py-12">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <span className="bg-primary text-primary-foreground flex size-11 items-center justify-center rounded-2xl">
-            <Columns3 size={21} strokeWidth={2} />
-          </span>
+      <div className="border-line bg-surface w-full max-w-[420px] rounded-3xl border p-8 shadow-sm">
+        <div className="mb-6 flex items-center gap-3">
+          <Logo size={44} />
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight">TeamFlow</h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              เข้าสู่ระบบเพื่อจัดการงานของทีม
-            </p>
+            <div className="text-[22px] leading-tight font-extrabold tracking-tight">
+              TeamFlow
+            </div>
+            <div className="text-muted-foreground text-xs">
+              ระบบจัดการงานของทีม
+            </div>
           </div>
         </div>
 
-        <div className="bg-card rounded-[18px] border p-6 shadow-sm">
-          <LoginForm callbackUrl={callbackUrl} />
-        </div>
+        <LoginForm callbackUrl={callbackUrl} />
       </div>
     </main>
   );
