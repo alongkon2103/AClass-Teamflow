@@ -127,7 +127,79 @@ pnpm build
 pnpm start
 ```
 
-### 4. อยู่หลัง reverse proxy / tunnel
+### 4. รันด้วย PM2 บน VPS (port 3009)
+
+`ecosystem.config.js` ตั้งค่าไว้พร้อมแล้ว รันครั้งแรก:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm db:migrate
+pnpm build
+pm2 start ecosystem.config.js
+pm2 save                       # จำ process list ไว้
+pm2 startup                    # ให้ start อัตโนมัติเมื่อ VPS reboot (ทำครั้งเดียว)
+```
+
+deploy รอบถัดไป:
+
+```bash
+git pull
+pnpm install --frozen-lockfile
+pnpm db:migrate
+pnpm build
+pm2 reload teamflow            # restart แบบไม่ให้ request ค้าง
+```
+
+คำสั่งที่ใช้บ่อย:
+
+| คำสั่ง                 | หน้าที่                        |
+| ---------------------- | ------------------------------ |
+| `pm2 logs teamflow`    | ดู log สด (เก็บไว้ที่ `logs/`) |
+| `pm2 status`           | สถานะ process                  |
+| `pm2 restart teamflow` | restart                        |
+| `pm2 stop teamflow`    | หยุด                           |
+| `pm2 monit`            | ดู CPU/memory                  |
+
+**ตั้งใจให้รันแค่ instance เดียว** (`exec_mode: fork`, `instances: 1`) เพราะ rate limit
+ของหน้า login เก็บสถานะใน memory ของ process ถ้ารัน cluster หลายตัว แต่ละตัวจะนับแยกกัน
+ทำให้ยิง login ได้ 5 ครั้ง × จำนวน instance ต่อนาที ซึ่งอ่อนกว่าที่ spec กำหนด
+ทีมขนาด 4–15 คน instance เดียวเหลือเฟือ ถ้าจะ scale ต้องย้าย rate limiter ไป Redis ก่อน
+
+> `ecosystem.config.js` ถูก commit ขึ้น repo จึง**ไม่มีความลับอยู่ในไฟล์**
+> ค่า `DATABASE_URL` / `DIRECT_URL` / `AUTH_SECRET` / `AUTH_URL` ให้อยู่ใน `.env` บนเครื่อง VPS
+> (Next.js อ่านให้ตอน runtime) และ `.env` ถูก gitignore ไว้แล้ว
+
+### 5. Nginx reverse proxy
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name teamflow.example.com;
+
+    # ssl_certificate ... (เช่นจาก certbot)
+
+    client_max_body_size 6M;          # รูปความคืบหน้าจำกัด 5MB
+
+    location / {
+        proxy_pass http://127.0.0.1:3009;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        # จำเป็น: rate limit ของหน้า login อ่าน IP จาก header นี้
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 60s;
+    }
+}
+```
+
+ตั้ง `AUTH_URL="https://teamflow.example.com"` ให้ตรงกับ `server_name`
+
+### 6. อยู่หลัง reverse proxy / tunnel
 
 `trustHost: true` ถูกเปิดไว้ใน `auth.config.ts` เพราะ Auth.js v5 จะปฏิเสธทุก request
 ใน production ถ้า Host ไม่ตรงกับที่รู้จัก (`UntrustedHost`) — อาการคือ login ไม่ผ่าน
@@ -135,7 +207,7 @@ pnpm start
 
 ให้ proxy ส่ง `X-Forwarded-For` มาด้วย เพราะ rate limit ของหน้า login อ่านค่าจาก header นี้
 
-### 5. ที่เก็บรูปความคืบหน้า
+### 7. ที่เก็บรูปความคืบหน้า
 
 ค่าเริ่มต้นเก็บลงดิสก์ที่ `.uploads/` และเสิร์ฟผ่าน `/api/uploads/...` หลังการตรวจ session
 เหมาะกับการ self-host แต่ต้อง**ผูก volume ให้ถาวร** ไม่งั้นรูปหายเมื่อ redeploy
@@ -147,7 +219,7 @@ pnpm start
 
 ทั้งสองแบบเก็บเฉพาะ URL ลงฐานข้อมูล ไม่มี base64 ใน DB
 
-### 6. ข้อจำกัดที่ควรรู้
+### 8. ข้อจำกัดที่ควรรู้
 
 Rate limit ของ login เก็บสถานะไว้ใน memory ของ process — ถูกต้องสำหรับ instance เดียว
 ถ้าจะ scale หลาย instance ต้องเปลี่ยนไปใช้ store ร่วม (Redis/Upstash) ก่อน
