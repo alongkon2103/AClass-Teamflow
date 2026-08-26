@@ -1,0 +1,186 @@
+// TeamFlow database schema.
+// Calendar-day fields use @db.Date (not timestamp) to avoid timezone drift across
+// day boundaries; the service layer normalizes to Asia/Bangkok on read/write.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Direct (non-pooled) connection used only by migrations. On Supabase this is
+  // the port-5432 URL; the pooled DATABASE_URL (port 6543) is used at runtime.
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  LEADER
+  MEMBER
+}
+
+enum TaskStatus {
+  TODO
+  DOING
+  REVIEW
+  DONE
+}
+
+enum Priority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+enum FeedbackStatus {
+  PENDING
+  FIXING
+  DISMISSED
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  PROGRESS_SUBMITTED
+  TASK_ASSIGNED
+  LEAVE_REQUESTED
+  LEAVE_DECIDED
+  FEEDBACK_REPLIED
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String
+  passwordHash       String
+  role               Role     @default(MEMBER)
+  jobTitle           String? // "Developer", "Designer"
+  avatarColor        String // hex e.g. "#2E7CF6"
+  // Forces a password change on first login (temporary passwords set by a leader).
+  mustChangePassword Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  assignedTasks   Task[]          @relation("TaskAssignee")
+  createdTasks    Task[]          @relation("TaskCreator")
+  progressEntries ProgressEntry[]
+  leaves          Leave[]         @relation("LeaveUser")
+  decidedLeaves   Leave[]         @relation("LeaveDecider")
+  repliedFeedback Feedback[]      @relation("FeedbackReplier")
+  notifications   Notification[]  @relation("NotifRecipient")
+  actedNotifs     Notification[]  @relation("NotifActor")
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    Priority   @default(NORMAL)
+  startDate   DateTime   @db.Date
+  dueDate     DateTime?  @db.Date
+  sortOrder   Int        @default(0) // order within a kanban column
+  assigneeId  String?
+  createdById String
+  gameId      String? // which game this task relates to (optional)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  archivedAt  DateTime? // soft delete
+
+  assignee  User?           @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy User            @relation("TaskCreator", fields: [createdById], references: [id])
+  game      Game?           @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  progress  ProgressEntry[]
+  feedbacks Feedback[] // feedback converted into this task
+
+  @@index([assigneeId, status])
+  @@index([dueDate])
+}
+
+model ProgressEntry {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String
+  entryDate DateTime @db.Date // date the progress is for (shown on the calendar)
+  body      String
+  imageUrl  String?
+  createdAt DateTime @default(now())
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([entryDate])
+  @@index([taskId, entryDate])
+}
+
+model Game {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  // Disabled instead of deleted when feedback/tasks still reference it.
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  feedbacks Feedback[]
+  tasks     Task[]
+}
+
+model Feedback {
+  id           String         @id @default(cuid())
+  ticketNumber String         @unique // "TK-0001", generated server-side
+  customerName String
+  reportedAt   DateTime       @db.Date
+  gameId       String
+  body         String
+  status       FeedbackStatus @default(PENDING)
+  replyBody    String?
+  repliedById  String?
+  repliedAt    DateTime?
+  linkedTaskId String? // when status = FIXING, may link to the created task
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  game       Game  @relation(fields: [gameId], references: [id])
+  linkedTask Task? @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  repliedBy  User? @relation("FeedbackReplier", fields: [repliedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([gameId])
+}
+
+model Leave {
+  id          String      @id @default(cuid())
+  userId      String
+  startDate   DateTime    @db.Date
+  endDate     DateTime    @db.Date
+  reason      String?
+  status      LeaveStatus @default(PENDING)
+  decidedById String?
+  decidedAt   DateTime?
+  createdAt   DateTime    @default(now())
+
+  user      User  @relation("LeaveUser", fields: [userId], references: [id], onDelete: Cascade)
+  decidedBy User? @relation("LeaveDecider", fields: [decidedById], references: [id])
+
+  @@index([startDate, endDate])
+  @@index([userId])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  recipientId String
+  actorId     String?
+  type        NotificationType
+  payload     Json // { taskId, taskTitle, excerpt, leaveId, ... }
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  recipient User  @relation("NotifRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User? @relation("NotifActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([recipientId, readAt])
+}

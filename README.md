@@ -69,7 +69,14 @@ Supabase มี connection string สองแบบ — ตั้งค่า�
 
 ## บัญชีทดสอบ (หลัง seed)
 
-จะเพิ่มในเอกสารเมื่อ seed script พร้อม (Phase 1)
+รหัสผ่านเดียวกันทุกบัญชี: `password1234`
+
+| Role   | Email               | ชื่อ           | ตำแหน่ง     |
+| ------ | ------------------- | -------------- | ----------- |
+| LEADER | leader@teamflow.app | กมล ประสิทธิ์  | หัวหน้าทีม   |
+| MEMBER | napa@teamflow.app   | นภา จันทร์เพ็ญ | Developer   |
+| MEMBER | thana@teamflow.app  | ธนา รักดี      | Designer    |
+| MEMBER | ploy@teamflow.app   | พลอย ศิริวงศ์  | QA Engineer |
 
 ## โครงสร้างโปรเจกต์
 
