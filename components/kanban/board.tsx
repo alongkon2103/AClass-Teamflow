@@ -58,6 +58,7 @@ export function Board({
   canAssign,
   today,
   defaultAssigneeId,
+  boardUserId,
 }: {
   initialTasks: BoardTaskView[];
   members: MemberOption[];
@@ -65,6 +66,8 @@ export function Board({
   canAssign: boolean;
   today: string;
   defaultAssigneeId: string | null;
+  /** Whose board is on screen, so the server orders against the same list. */
+  boardUserId: string | null;
 }) {
   const router = useRouter();
   const [dialog, setDialog] = useState<TaskDialogState>({ mode: "closed" });
@@ -102,7 +105,7 @@ export function Board({
   const commitMove = (move: Move) => {
     startTransition(async () => {
       applyOptimistic(move);
-      const result = await moveTaskAction(move);
+      const result = await moveTaskAction({ ...move, boardUserId });
       if (!result.ok) {
         // useOptimistic drops the override when the transition ends, so the
         // server state returns on its own; the toast explains why.

@@ -35,6 +35,7 @@ enum Priority {
 enum FeedbackStatus {
   PENDING
   FIXING
+  RESOLVED
   DISMISSED
 }
 
@@ -50,6 +51,7 @@ enum NotificationType {
   LEAVE_REQUESTED
   LEAVE_DECIDED
   FEEDBACK_REPLIED
+  PROGRESS_REPLIED
 }
 
 model User {
@@ -66,14 +68,15 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  assignedTasks   Task[]          @relation("TaskAssignee")
-  createdTasks    Task[]          @relation("TaskCreator")
-  progressEntries ProgressEntry[]
-  leaves          Leave[]         @relation("LeaveUser")
-  decidedLeaves   Leave[]         @relation("LeaveDecider")
-  repliedFeedback Feedback[]      @relation("FeedbackReplier")
-  notifications   Notification[]  @relation("NotifRecipient")
-  actedNotifs     Notification[]  @relation("NotifActor")
+  assignedTasks    TaskAssignment[]  @relation("TaskAssignee")
+  createdTasks     Task[]            @relation("TaskCreator")
+  progressEntries  ProgressEntry[]
+  progressComments ProgressComment[] @relation("ProgressCommenter")
+  leaves           Leave[]           @relation("LeaveUser")
+  decidedLeaves    Leave[]           @relation("LeaveDecider")
+  repliedFeedback  Feedback[]        @relation("FeedbackReplier")
+  notifications    Notification[]    @relation("NotifRecipient")
+  actedNotifs      Notification[]    @relation("NotifActor")
 }
 
 model Task {
@@ -85,21 +88,35 @@ model Task {
   startDate   DateTime   @db.Date
   dueDate     DateTime?  @db.Date
   sortOrder   Int        @default(0) // order within a kanban column
-  assigneeId  String?
   createdById String
   gameId      String? // which game this task relates to (optional)
+  // Free-text game name, used when the task is not tied to one in the library.
+  gameNote    String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   archivedAt  DateTime? // soft delete
 
-  assignee  User?           @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  createdBy User            @relation("TaskCreator", fields: [createdById], references: [id])
-  game      Game?           @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  createdBy User             @relation("TaskCreator", fields: [createdById], references: [id])
+  game      Game?            @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  assignees TaskAssignment[]
   progress  ProgressEntry[]
   feedbacks Feedback[] // feedback converted into this task
 
-  @@index([assigneeId, status])
+  @@index([status])
   @@index([dueDate])
+}
+
+/// Join table: one task can be worked on by several people (SPEC change 2026-08).
+model TaskAssignment {
+  taskId     String
+  userId     String
+  assignedAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation("TaskAssignee", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
 }
 
 model ProgressEntry {
@@ -111,11 +128,26 @@ model ProgressEntry {
   imageUrl  String?
   createdAt DateTime @default(now())
 
-  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  author User @relation(fields: [authorId], references: [id])
+  task     Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author   User              @relation(fields: [authorId], references: [id])
+  comments ProgressComment[]
 
   @@index([entryDate])
   @@index([taskId, entryDate])
+}
+
+/// A reply on a progress entry — the leader answering a member's daily update.
+model ProgressComment {
+  id        String   @id @default(cuid())
+  entryId   String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  entry  ProgressEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  author User          @relation("ProgressCommenter", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([entryId])
 }
 
 model Game {

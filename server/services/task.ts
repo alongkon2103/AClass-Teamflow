@@ -46,16 +46,39 @@ export function sortOrderForIndex(
   return (before + after) / 2;
 }
 
-/** Fields a member is allowed to change on a task they own. */
+/** Members may edit their own tasks but never change who they belong to. */
 function assertAssigneeChangeAllowed(
   actor: Actor,
-  currentAssigneeId: string | null,
-  nextAssigneeId: string | null,
+  current: string[],
+  next: string[],
 ) {
-  if (currentAssigneeId === nextAssigneeId) return;
+  const unchanged =
+    current.length === next.length &&
+    [...current].sort().join() === [...next].sort().join();
+  if (unchanged) return;
   if (!canChangeAssignee(actor)) {
     throw new ForbiddenError("คุณไม่มีสิทธิ์เปลี่ยนผู้รับผิดชอบงาน");
   }
+}
+
+/** Notifies each newly assigned person, skipping whoever made the change. */
+async function notifyAssigned(
+  tx: Prisma.TransactionClient,
+  actor: Actor,
+  task: { id: string; title: string },
+  userIds: string[],
+) {
+  const recipients = userIds.filter((id) => id !== actor.id);
+  if (recipients.length === 0) return;
+
+  await tx.notification.createMany({
+    data: recipients.map((recipientId) => ({
+      recipientId,
+      actorId: actor.id,
+      type: NotificationType.TASK_ASSIGNED,
+      payload: { taskId: task.id, taskTitle: task.title },
+    })),
+  });
 }
 
 export async function listBoardTasks(
@@ -66,7 +89,7 @@ export async function listBoardTasks(
   // A leader may inspect one member's board; members are always scoped to self.
   const scope =
     actor.role === "LEADER" && boardUserId
-      ? { assigneeId: boardUserId }
+      ? { assignees: { some: { userId: boardUserId } } }
       : taskVisibilityFilter(actor);
 
   return db.task.findMany({
@@ -81,8 +104,13 @@ export async function listBoardTasks(
       dueDate: true,
       sortOrder: true,
       gameId: true,
-      assigneeId: true,
-      assignee: { select: { id: true, name: true, avatarColor: true } },
+      gameNote: true,
+      assignees: {
+        select: {
+          user: { select: { id: true, name: true, avatarColor: true } },
+        },
+        orderBy: { assignedAt: "asc" },
+      },
       game: { select: { id: true, name: true } },
       _count: { select: { progress: true } },
     },
@@ -97,10 +125,13 @@ export async function createTask(
   actor: Actor,
   input: TaskFormInput,
 ) {
-  assertCan(actor, { type: "task:create", assigneeId: input.assigneeId });
+  assertCan(actor, { type: "task:create", assigneeIds: input.assigneeIds });
 
   // Members cannot hand a new task to someone else.
-  if (!canChangeAssignee(actor) && input.assigneeId !== actor.id) {
+  if (
+    !canChangeAssignee(actor) &&
+    input.assigneeIds.some((id) => id !== actor.id)
+  ) {
     throw new ForbiddenError("คุณสร้างงานให้ตัวเองได้เท่านั้น");
   }
 
@@ -119,25 +150,19 @@ export async function createTask(
         priority: input.priority,
         startDate: parseCalendarDate(input.startDate),
         dueDate: input.dueDate ? parseCalendarDate(input.dueDate) : null,
-        assigneeId: input.assigneeId,
         gameId: input.gameId,
+        gameNote: input.gameNote,
         createdById: actor.id,
         sortOrder: (last?.sortOrder ?? 0) + SORT_STEP,
+        assignees: {
+          create: input.assigneeIds.map((userId) => ({ userId })),
+        },
       },
-      select: { id: true, title: true, assigneeId: true },
+      select: { id: true, title: true },
     });
 
-    // Tell the assignee, unless they assigned it to themselves.
-    if (task.assigneeId && task.assigneeId !== actor.id) {
-      await tx.notification.create({
-        data: {
-          recipientId: task.assigneeId,
-          actorId: actor.id,
-          type: NotificationType.TASK_ASSIGNED,
-          payload: { taskId: task.id, taskTitle: task.title },
-        },
-      });
-    }
+    // Tell everyone put on the task, except whoever did the assigning.
+    await notifyAssigned(tx, actor, task, input.assigneeIds);
 
     return task;
   });
@@ -151,15 +176,29 @@ export async function updateTask(
 ) {
   const existing = await db.task.findFirst({
     where: { id: taskId, archivedAt: null },
-    select: { id: true, assigneeId: true, createdById: true, title: true },
+    select: {
+      id: true,
+      createdById: true,
+      title: true,
+      assignees: { select: { userId: true } },
+    },
   });
   if (!existing) throw new NotFoundError();
 
-  assertCan(actor, { type: "task:update", task: existing });
-  assertAssigneeChangeAllowed(actor, existing.assigneeId, input.assigneeId);
+  const currentAssigneeIds = existing.assignees.map((row) => row.userId);
+  assertCan(actor, {
+    type: "task:update",
+    task: {
+      assigneeIds: currentAssigneeIds,
+      createdById: existing.createdById,
+    },
+  });
+  assertAssigneeChangeAllowed(actor, currentAssigneeIds, input.assigneeIds);
 
-  const reassigned =
-    existing.assigneeId !== input.assigneeId && input.assigneeId !== null;
+  // Only people who were not already on the task get told about it.
+  const addedAssigneeIds = input.assigneeIds.filter(
+    (id) => !currentAssigneeIds.includes(id),
+  );
 
   return db.$transaction(async (tx) => {
     const task = await tx.task.update({
@@ -171,22 +210,22 @@ export async function updateTask(
         priority: input.priority,
         startDate: parseCalendarDate(input.startDate),
         dueDate: input.dueDate ? parseCalendarDate(input.dueDate) : null,
-        assigneeId: input.assigneeId,
         gameId: input.gameId,
+        gameNote: input.gameNote,
+        assignees: {
+          deleteMany: { userId: { notIn: input.assigneeIds } },
+          // Existing rows are left alone so their assignedAt (and card order)
+          // survives an edit that only adds someone.
+          createMany: {
+            data: addedAssigneeIds.map((userId) => ({ userId })),
+            skipDuplicates: true,
+          },
+        },
       },
-      select: { id: true, title: true, assigneeId: true },
+      select: { id: true, title: true },
     });
 
-    if (reassigned && task.assigneeId && task.assigneeId !== actor.id) {
-      await tx.notification.create({
-        data: {
-          recipientId: task.assigneeId,
-          actorId: actor.id,
-          type: NotificationType.TASK_ASSIGNED,
-          payload: { taskId: task.id, taskTitle: task.title },
-        },
-      });
-    }
+    await notifyAssigned(tx, actor, task, addedAssigneeIds);
 
     return task;
   });
@@ -203,19 +242,28 @@ export async function moveTask(
 ) {
   const task = await db.task.findFirst({
     where: { id: input.taskId, archivedAt: null },
-    select: { id: true, assigneeId: true, status: true },
+    select: {
+      id: true,
+      status: true,
+      assignees: { select: { userId: true } },
+    },
   });
   if (!task) throw new NotFoundError();
 
-  assertCan(actor, { type: "task:update", task });
+  const assigneeIds = task.assignees.map((row) => row.userId);
+  assertCan(actor, { type: "task:update", task: { assigneeIds } });
 
-  // Order within the column the card belongs to, as the board displays it.
+  // Order within the column as the board that issued the move displays it: the
+  // board is always scoped to one person, so scope the siblings the same way.
+  const boardUserId =
+    actor.role === "LEADER" ? (input.boardUserId ?? null) : actor.id;
+
   const siblings = await db.task.findMany({
     where: {
       archivedAt: null,
       status: input.status,
-      assigneeId: task.assigneeId,
       id: { not: task.id },
+      ...(boardUserId ? { assignees: { some: { userId: boardUserId } } } : {}),
     },
     orderBy: { sortOrder: "asc" },
     select: { sortOrder: true },
@@ -239,11 +287,21 @@ export async function archiveTask(
 ) {
   const task = await db.task.findFirst({
     where: { id: taskId, archivedAt: null },
-    select: { id: true, assigneeId: true, createdById: true },
+    select: {
+      id: true,
+      createdById: true,
+      assignees: { select: { userId: true } },
+    },
   });
   if (!task) throw new NotFoundError();
 
-  assertCan(actor, { type: "task:delete", task });
+  assertCan(actor, {
+    type: "task:delete",
+    task: {
+      assigneeIds: task.assignees.map((row) => row.userId),
+      createdById: task.createdById,
+    },
+  });
 
   return db.task.update({
     where: { id: taskId },

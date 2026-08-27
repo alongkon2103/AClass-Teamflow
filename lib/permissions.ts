@@ -14,7 +14,8 @@ export type Actor = {
 
 /** Resources an action can target. Shapes stay minimal so services can pass slices. */
 export type TaskResource = {
-  assigneeId: string | null;
+  /** Every user currently assigned to the task; a task may be shared. */
+  assigneeIds: string[];
   createdById?: string;
 };
 export type ProgressResource = { authorId: string };
@@ -24,13 +25,14 @@ export type Action =
   // tasks
   | { type: "task:viewAll" }
   | { type: "task:view"; task: TaskResource }
-  | { type: "task:create"; assigneeId?: string | null }
+  | { type: "task:create"; assigneeIds?: string[] }
   | { type: "task:update"; task: TaskResource }
   | { type: "task:delete"; task: TaskResource }
   | { type: "task:assign" }
   // progress
   | { type: "progress:create"; task: TaskResource }
   | { type: "progress:delete"; entry: ProgressResource }
+  | { type: "progress:reply" }
   // games
   | { type: "game:manage" }
   // feedback
@@ -46,7 +48,7 @@ export type Action =
 
 const isLeader = (actor: Actor) => actor.role === Role.LEADER;
 const ownsTask = (actor: Actor, task: TaskResource) =>
-  task.assigneeId === actor.id;
+  task.assigneeIds.includes(actor.id);
 
 export function can(actor: Actor, action: Action): boolean {
   switch (action.type) {
@@ -66,9 +68,9 @@ export function can(actor: Actor, action: Action): boolean {
       // Members may only create tasks for themselves (assigning is leader-only).
       return (
         isLeader(actor) ||
-        action.assigneeId === undefined ||
-        action.assigneeId === null ||
-        action.assigneeId === actor.id
+        action.assigneeIds === undefined ||
+        action.assigneeIds.length === 0 ||
+        (action.assigneeIds.length === 1 && action.assigneeIds[0] === actor.id)
       );
 
     // --- Progress -----------------------------------------------------------
@@ -81,6 +83,7 @@ export function can(actor: Actor, action: Action): boolean {
 
     // --- Games / feedback / members ----------------------------------------
     case "game:manage":
+    case "progress:reply":
     case "feedback:reply":
     case "member:manage":
     case "leave:decide":
@@ -103,8 +106,8 @@ export function can(actor: Actor, action: Action): boolean {
 }
 
 /**
- * Whether the actor may change a task's assignee. Members can edit their own
- * tasks but must never reassign them (SPEC section 4).
+ * Whether the actor may change who a task is assigned to. Members can edit their
+ * own tasks but must never reassign them (SPEC section 4).
  */
 export function canChangeAssignee(actor: Actor): boolean {
   return isLeader(actor);
@@ -114,8 +117,11 @@ export function canChangeAssignee(actor: Actor): boolean {
  * Prisma `where` fragment scoping task queries to what the actor may see.
  * Leaders see everything; members see only their own tasks.
  */
-export function taskVisibilityFilter(actor: Actor): { assigneeId?: string } {
-  return isLeader(actor) ? {} : { assigneeId: actor.id };
+export function taskVisibilityFilter(actor: Actor): {
+  assignees?: { some: { userId: string } };
+} {
+  // Members see every task they are one of the assignees on.
+  return isLeader(actor) ? {} : { assignees: { some: { userId: actor.id } } };
 }
 
 /** Landing route after login / when a member hits a leader-only page. */

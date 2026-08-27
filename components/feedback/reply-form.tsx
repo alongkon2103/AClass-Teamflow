@@ -13,6 +13,7 @@ import type { FeedbackView } from "./feedback-card";
 const STATUS_ORDER: FeedbackStatus[] = [
   FeedbackStatus.PENDING,
   FeedbackStatus.FIXING,
+  FeedbackStatus.RESOLVED,
   FeedbackStatus.DISMISSED,
 ];
 

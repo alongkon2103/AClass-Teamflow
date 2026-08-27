@@ -15,7 +15,7 @@ type Row = {
   priority: Priority;
   startDate: string;
   dueDate: string | null;
-  assignee: { id: string; name: string; avatarColor: string } | null;
+  assignees: { user: { id: string; name: string; avatarColor: string } }[];
 };
 
 export function TaskTable({
@@ -90,10 +90,17 @@ export function TaskTable({
                     ) : null}
                   </td>
                   <td className="px-3 py-3">
-                    {row.assignee ? (
-                      <span className="inline-flex items-center gap-2">
-                        <Avatar user={row.assignee} size={26} />
-                        <span className="text-[13px]">{row.assignee.name}</span>
+                    {row.assignees.length > 0 ? (
+                      <span className="inline-flex flex-wrap items-center gap-2">
+                        {row.assignees.map(({ user }) => (
+                          <span
+                            key={user.id}
+                            className="inline-flex items-center gap-1.5"
+                          >
+                            <Avatar user={user} size={26} />
+                            <span className="text-[13px]">{user.name}</span>
+                          </span>
+                        ))}
                       </span>
                     ) : (
                       <span className="text-muted-foreground text-[13px]">

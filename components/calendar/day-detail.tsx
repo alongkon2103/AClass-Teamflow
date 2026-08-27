@@ -128,10 +128,10 @@ export function DayDetailDialog({
                       }}
                     >
                       {task.title}
-                      {task.assignee ? (
+                      {task.assignees.length > 0 ? (
                         <span className="text-muted-foreground text-xs">
                           {" "}
-                          · {task.assignee.name}
+                          · {task.assignees.map((a) => a.name).join(", ")}
                         </span>
                       ) : null}
                     </li>

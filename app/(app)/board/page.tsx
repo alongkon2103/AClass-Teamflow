@@ -42,9 +42,10 @@ export default async function BoardPage({
     startDate: formatCalendarDate(task.startDate),
     dueDate: toCalendarString(task.dueDate),
     sortOrder: task.sortOrder,
-    assigneeId: task.assigneeId,
-    assignee: task.assignee,
+    assigneeIds: task.assignees.map((row) => row.user.id),
+    assignees: task.assignees.map((row) => row.user),
     gameId: task.gameId,
+    gameNote: task.gameNote,
     progressCount: task._count.progress,
   }));
 
@@ -94,6 +95,7 @@ export default async function BoardPage({
         canAssign={canAssign}
         today={today}
         defaultAssigneeId={boardUserId ?? (canAssign ? null : user.id)}
+        boardUserId={boardUserId}
       />
     </>
   );

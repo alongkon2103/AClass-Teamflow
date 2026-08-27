@@ -62,13 +62,33 @@ describe("taskFormSchema", () => {
       ...base,
       description: "",
       dueDate: "",
-      assigneeId: "",
       gameId: "",
     });
     expect(parsed.description).toBeNull();
     expect(parsed.dueDate).toBeNull();
-    expect(parsed.assigneeId).toBeNull();
     expect(parsed.gameId).toBeNull();
+    expect(parsed.assigneeIds).toEqual([]);
+  });
+
+  it("keeps several assignees and drops blanks and duplicates", () => {
+    const parsed = taskFormSchema.parse({
+      ...base,
+      assigneeIds: ["u1", "u2", "u1"],
+    });
+    expect(parsed.assigneeIds).toEqual(["u1", "u2"]);
+  });
+
+  it("keeps a free-text game name only when no library game is chosen", () => {
+    expect(
+      taskFormSchema.parse({ ...base, gameId: "", gameNote: "  เกมใหม่ " })
+        .gameNote,
+    ).toBe("เกมใหม่");
+    // Picking a real game wins; the stray note is discarded rather than kept
+    // alongside it, so there is only ever one source of truth.
+    expect(
+      taskFormSchema.parse({ ...base, gameId: "g1", gameNote: "เกมใหม่" })
+        .gameNote,
+    ).toBeNull();
   });
 
   it("trims the title and rejects an empty one", () => {

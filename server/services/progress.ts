@@ -22,9 +22,88 @@ export async function listProgressForTask(db: PrismaClient, taskId: string) {
       createdAt: true,
       authorId: true,
       author: { select: { id: true, name: true, avatarColor: true } },
+      comments: {
+        select: {
+          id: true,
+          body: true,
+          createdAt: true,
+          authorId: true,
+          author: { select: { id: true, name: true, avatarColor: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
     },
     orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
   });
+}
+
+/**
+ * Reply to a member's daily update. Leader-only, matching who may act on a task
+ * they do not own; the author is notified so the answer is not missed.
+ */
+export async function replyToProgress(
+  db: PrismaClient,
+  actor: Actor,
+  entryId: string,
+  body: string,
+) {
+  const entry = await db.progressEntry.findUnique({
+    where: { id: entryId },
+    select: {
+      id: true,
+      authorId: true,
+      body: true,
+      task: { select: { id: true, title: true } },
+    },
+  });
+  if (!entry) throw new NotFoundError("ไม่พบความคืบหน้าที่ต้องการ");
+
+  assertCan(actor, { type: "progress:reply" });
+
+  return db.$transaction(async (tx) => {
+    const comment = await tx.progressComment.create({
+      data: { entryId: entry.id, authorId: actor.id, body },
+      select: { id: true },
+    });
+
+    if (entry.authorId !== actor.id) {
+      await tx.notification.create({
+        data: {
+          recipientId: entry.authorId,
+          actorId: actor.id,
+          type: NotificationType.PROGRESS_REPLIED,
+          payload: {
+            taskId: entry.task.id,
+            taskTitle: entry.task.title,
+            excerpt: excerpt(body),
+          },
+        },
+      });
+    }
+
+    return comment;
+  });
+}
+
+export async function deleteProgressComment(
+  db: PrismaClient,
+  actor: Actor,
+  commentId: string,
+) {
+  const comment = await db.progressComment.findUnique({
+    where: { id: commentId },
+    select: { id: true, authorId: true },
+  });
+  if (!comment) throw new NotFoundError("ไม่พบข้อความตอบกลับ");
+
+  // Same rule as progress entries: leaders anything, authors their own.
+  assertCan(actor, {
+    type: "progress:delete",
+    entry: { authorId: comment.authorId },
+  });
+
+  await db.progressComment.delete({ where: { id: commentId } });
+  return { id: comment.id };
 }
 
 /**
@@ -39,11 +118,18 @@ export async function createProgress(
 ) {
   const task = await db.task.findFirst({
     where: { id: input.taskId, archivedAt: null },
-    select: { id: true, title: true, assigneeId: true },
+    select: {
+      id: true,
+      title: true,
+      assignees: { select: { userId: true } },
+    },
   });
   if (!task) throw new NotFoundError();
 
-  assertCan(actor, { type: "progress:create", task });
+  assertCan(actor, {
+    type: "progress:create",
+    task: { assigneeIds: task.assignees.map((row) => row.userId) },
+  });
 
   const leaders =
     actor.role === Role.MEMBER

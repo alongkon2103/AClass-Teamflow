@@ -14,8 +14,12 @@ import { MAX_IMAGE_BYTES, ALLOWED_IMAGE_TYPES } from "@/lib/storage/limits";
 import {
   createProgressAction,
   deleteProgressAction,
+  deleteProgressCommentAction,
   loadProgressAction,
+  replyProgressAction,
 } from "@/server/actions/progress";
+import { ImageLightbox } from "./image-lightbox";
+import { ProgressReplies } from "./progress-replies";
 
 export type ProgressEntryView = {
   id: string;
@@ -25,6 +29,12 @@ export type ProgressEntryView = {
   authorId: string;
   author: { id: string; name: string; avatarColor: string };
   canDelete: boolean;
+  comments: {
+    id: string;
+    body: string;
+    author: { id: string; name: string; avatarColor: string };
+    canDelete: boolean;
+  }[];
 };
 
 /**
@@ -35,10 +45,13 @@ export function ProgressSection({
   taskId,
   today,
   onSaved,
+  canReply,
 }: {
   taskId: string;
   today: string;
   onSaved: () => void;
+  /** Leaders may answer a member's daily update. */
+  canReply: boolean;
 }) {
   const [entries, setEntries] = useState<ProgressEntryView[] | null>(null);
   const [body, setBody] = useState("");
@@ -47,7 +60,10 @@ export function ProgressSection({
     null,
   );
   const [pending, startTransition] = useTransition();
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const reload = async () => setEntries(await loadProgressAction(taskId));
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +94,17 @@ export function ProgressSection({
       return;
     }
     setImage({ file, preview: URL.createObjectURL(file) });
+  };
+
+  /** Ctrl+V straight into the box attaches the pasted screenshot. */
+  const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = Array.from(event.clipboardData.files).find((item) =>
+      item.type.startsWith("image/"),
+    );
+    if (!file) return;
+    // Stop the image's placeholder text from also landing in the textarea.
+    event.preventDefault();
+    pickImage(file);
   };
 
   const submit = () => {
@@ -120,7 +147,7 @@ export function ProgressSection({
       setBody("");
       setImage(null);
       if (fileInput.current) fileInput.current.value = "";
-      setEntries(await loadProgressAction(taskId));
+      await reload();
       onSaved();
     });
   };
@@ -133,7 +160,7 @@ export function ProgressSection({
         return;
       }
       toast.success("ลบความคืบหน้าแล้ว");
-      setEntries(await loadProgressAction(taskId));
+      await reload();
       onSaved();
     });
   };
@@ -180,15 +207,53 @@ export function ProgressSection({
                 {entry.body}
               </p>
               {entry.imageUrl ? (
-                <Image
-                  src={entry.imageUrl}
-                  alt="รูปประกอบความคืบหน้า"
-                  width={480}
-                  height={320}
-                  unoptimized
-                  className="border-line mt-2 h-auto max-h-48 w-auto rounded-xl border object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => setLightbox(entry.imageUrl)}
+                  aria-label="ดูรูปขนาดเต็ม"
+                  className="mt-2 block cursor-zoom-in"
+                >
+                  <Image
+                    src={entry.imageUrl}
+                    alt="รูปประกอบความคืบหน้า"
+                    width={480}
+                    height={320}
+                    unoptimized
+                    className="border-line h-auto max-h-48 w-auto rounded-xl border object-cover"
+                  />
+                </button>
               ) : null}
+
+              <ProgressReplies
+                comments={entry.comments}
+                canReply={canReply}
+                pending={pending}
+                onReply={(body) =>
+                  startTransition(async () => {
+                    const result = await replyProgressAction({
+                      entryId: entry.id,
+                      body,
+                    });
+                    if (!result.ok) {
+                      toast.error(result.message);
+                      return;
+                    }
+                    toast.success("ตอบกลับแล้ว");
+                    await reload();
+                    onSaved();
+                  })
+                }
+                onDelete={(id) =>
+                  startTransition(async () => {
+                    const result = await deleteProgressCommentAction({ id });
+                    if (!result.ok) {
+                      toast.error(result.message);
+                      return;
+                    }
+                    await reload();
+                  })
+                }
+              />
             </li>
           ))}
         </ol>
@@ -198,8 +263,9 @@ export function ProgressSection({
         <Textarea
           value={body}
           onChange={(event) => setBody(event.target.value)}
+          onPaste={onPaste}
           rows={2}
-          placeholder="วันนี้ทำอะไรไปบ้าง"
+          placeholder="วันนี้ทำอะไรไปบ้าง (วางรูปด้วย Ctrl+V ได้)"
           aria-label="ข้อความความคืบหน้า"
           className="border-none bg-transparent p-0 focus-visible:ring-0"
         />
@@ -265,6 +331,7 @@ export function ProgressSection({
           </Button>
         </div>
       </div>
+      <ImageLightbox src={lightbox} onClose={() => setLightbox(null)} />
     </section>
   );
 }

@@ -35,7 +35,11 @@ export function notificationHref(
     case "LEAVE_REQUESTED":
     case "LEAVE_DECIDED":
       return "/calendar";
+    case "PROGRESS_REPLIED":
     case "FEEDBACK_REPLIED":
+      if (type === "PROGRESS_REPLIED") {
+        return payload.taskId ? `/board?task=${payload.taskId}` : "/board";
+      }
       return payload.feedbackId
         ? `/feedback?ticket=${payload.feedbackId}`
         : "/feedback";
@@ -62,6 +66,8 @@ export function notificationMessage(
       return payload.status === "APPROVED"
         ? "คำขอลาของคุณได้รับการอนุมัติแล้ว"
         : "คำขอลาของคุณไม่ได้รับการอนุมัติ";
+    case "PROGRESS_REPLIED":
+      return `${who} ตอบกลับความคืบหน้าใน "${payload.taskTitle ?? "งาน"}"`;
     case "FEEDBACK_REPLIED":
       return `${who} ตอบกลับฟีดแบค ${payload.ticketNumber ?? ""}`.trim();
     default:

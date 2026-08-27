@@ -101,6 +101,11 @@ export const FEEDBACK_STATUS_META: Record<
   },
   [FeedbackStatus.FIXING]: {
     label: "จะแก้ไข",
+    mark: "var(--color-doing)",
+    ink: "var(--color-doing-ink)",
+  },
+  [FeedbackStatus.RESOLVED]: {
+    label: "แก้ไขสำเร็จ",
     mark: "var(--color-done)",
     ink: "var(--color-done-ink)",
   },

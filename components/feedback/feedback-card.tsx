@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import {
+  CircleCheck,
   CornerUpLeft,
   Gamepad2,
   MessageSquare,
@@ -10,7 +13,9 @@ import {
   Ticket,
   Trash2,
 } from "lucide-react";
-import type { FeedbackStatus } from "@prisma/client";
+import { FeedbackStatus } from "@prisma/client";
+import { Button } from "@/components/ui/button";
+import { replyFeedbackAction } from "@/server/actions/feedback";
 import { FeedbackStatusBadge } from "@/components/shared/badges";
 import { FEEDBACK_STATUS_META } from "@/lib/constants";
 import { formatThaiDate } from "@/lib/format";
@@ -43,7 +48,27 @@ export function FeedbackCard({
   onDelete: (id: string) => void;
 }) {
   const [replying, setReplying] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
   const meta = FEEDBACK_STATUS_META[feedback.status];
+
+  /** One-click close-out once the fix has shipped. */
+  const markResolved = () =>
+    startTransition(async () => {
+      const result = await replyFeedbackAction({
+        id: feedback.id,
+        status: FeedbackStatus.RESOLVED,
+        replyBody: feedback.replyBody,
+        createTask: false,
+        assigneeId: null,
+      });
+      if (result.ok) {
+        toast.success("เปลี่ยนเป็นแก้ไขสำเร็จแล้ว");
+        router.refresh();
+      } else {
+        toast.error(result.message);
+      }
+    });
 
   return (
     <article className="border-line bg-surface rounded-[18px] border p-5 shadow-sm">
@@ -101,6 +126,19 @@ export function FeedbackCard({
                   : ""}
               </p>
             </div>
+          ) : null}
+
+          {canReply && feedback.status === FeedbackStatus.FIXING ? (
+            <Button
+              type="button"
+              size="sm"
+              className="mt-3"
+              onClick={markResolved}
+              disabled={pending}
+            >
+              <CircleCheck size={14} strokeWidth={2} />
+              ทำเครื่องหมายว่าแก้ไขสำเร็จ
+            </Button>
           ) : null}
 
           {feedback.linkedTaskId ? (

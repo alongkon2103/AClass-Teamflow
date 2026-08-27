@@ -205,19 +205,21 @@ export async function replyToFeedback(
           status: TaskStatus.TODO,
           priority: Priority.IMPORTANT,
           startDate: todayInBangkok(),
-          assigneeId: input.assigneeId,
           gameId: feedback.gameId,
           createdById: actor.id,
           sortOrder: (last?.sortOrder ?? 0) + SORT_STEP,
+          ...(input.assigneeId
+            ? { assignees: { create: [{ userId: input.assigneeId }] } }
+            : {}),
         },
-        select: { id: true, title: true, assigneeId: true },
+        select: { id: true, title: true },
       });
       linkedTaskId = task.id;
 
-      if (task.assigneeId && task.assigneeId !== actor.id) {
+      if (input.assigneeId && input.assigneeId !== actor.id) {
         await tx.notification.create({
           data: {
-            recipientId: task.assigneeId,
+            recipientId: input.assigneeId,
             actorId: actor.id,
             type: NotificationType.TASK_ASSIGNED,
             payload: { taskId: task.id, taskTitle: task.title },

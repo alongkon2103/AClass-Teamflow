@@ -12,6 +12,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 const STATUS_ORDER: FeedbackStatus[] = [
   FeedbackStatus.PENDING,
   FeedbackStatus.FIXING,
+  FeedbackStatus.RESOLVED,
   FeedbackStatus.DISMISSED,
 ];
 

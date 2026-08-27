@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
@@ -33,6 +33,7 @@ import {
   updateTaskAction,
   deleteTaskAction,
 } from "@/server/actions/task";
+import { AssigneePicker } from "./assignee-picker";
 import { ProgressSection } from "./progress-section";
 import type { BoardTaskView, MemberOption, GameOption } from "./types";
 
@@ -85,8 +86,9 @@ export function TaskDialog({
       priority: Priority.NORMAL,
       startDate: today,
       dueDate: null,
-      assigneeId: null,
+      assigneeIds: [],
       gameId: null,
+      gameNote: null,
     },
   });
 
@@ -101,8 +103,9 @@ export function TaskDialog({
         priority: t.priority,
         startDate: t.startDate,
         dueDate: t.dueDate,
-        assigneeId: t.assigneeId,
+        assigneeIds: t.assigneeIds,
         gameId: t.gameId,
+        gameNote: t.gameNote,
       });
     } else if (state.mode === "create") {
       form.reset({
@@ -112,8 +115,9 @@ export function TaskDialog({
         priority: Priority.NORMAL,
         startDate: today,
         dueDate: null,
-        assigneeId: state.assigneeId,
+        assigneeIds: state.assigneeId ? [state.assigneeId] : [],
         gameId: null,
+        gameNote: null,
       });
     }
     // form is stable across renders; resetting on state change is the intent.
@@ -149,6 +153,8 @@ export function TaskDialog({
   };
 
   const errors = form.formState.errors;
+  // Watched so the free-text game field appears the moment "ไม่ระบุ" is picked.
+  const gameId = form.watch("gameId");
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -256,45 +262,46 @@ export function TaskDialog({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {canAssign ? (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="assigneeId" className={labelClass}>
-                  ผู้รับผิดชอบ
-                </Label>
-                <select
-                  id="assigneeId"
-                  className={selectClass}
-                  {...form.register("assigneeId")}
-                >
-                  <option value="">ยังไม่กำหนด</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                      {m.jobTitle ? ` · ${m.jobTitle}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
+          {canAssign ? (
+            <Controller
+              control={form.control}
+              name="assigneeIds"
+              render={({ field }) => (
+                <AssigneePicker
+                  members={members}
+                  value={field.value ?? []}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          ) : null}
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="gameId" className={labelClass}>
-                เกมที่เกี่ยวข้อง
-              </Label>
-              <select
-                id="gameId"
-                className={selectClass}
-                {...form.register("gameId")}
-              >
-                <option value="">ไม่ระบุ</option>
-                {games.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="gameId" className={labelClass}>
+              เกมที่เกี่ยวข้อง
+            </Label>
+            <select
+              id="gameId"
+              className={selectClass}
+              {...form.register("gameId")}
+            >
+              <option value="">ไม่ระบุ</option>
+              {games.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+
+            {/* No library game chosen: let the user name it themselves. */}
+            {!gameId ? (
+              <Input
+                aria-label="ชื่อเกมหรือหมายเหตุ"
+                placeholder="ระบุชื่อเกมเองได้ (ถ้ามี)"
+                className={fieldClass}
+                {...form.register("gameNote")}
+              />
+            ) : null}
           </div>
 
           {editing ? (
@@ -302,6 +309,7 @@ export function TaskDialog({
               taskId={editing.id}
               today={today}
               onSaved={onSaved}
+              canReply={canAssign}
             />
           ) : null}
 

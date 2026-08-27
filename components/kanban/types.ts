@@ -10,9 +10,10 @@ export type BoardTaskView = {
   startDate: string; // YYYY-MM-DD, already normalised to Bangkok
   dueDate: string | null;
   sortOrder: number;
-  assigneeId: string | null;
-  assignee: { id: string; name: string; avatarColor: string } | null;
+  assigneeIds: string[];
+  assignees: { id: string; name: string; avatarColor: string }[];
   gameId: string | null;
+  gameNote: string | null;
   progressCount: number;
 };
 

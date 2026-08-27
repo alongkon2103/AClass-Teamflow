@@ -30,15 +30,23 @@ export const taskFormSchema = z
     priority: z.enum(Priority),
     startDate: z.string().trim().regex(ISO_DATE, "รูปแบบวันที่ไม่ถูกต้อง"),
     dueDate: z.string().nullish(),
-    assigneeId: z.string().nullish(),
+    // A task can be shared: zero or more people work on it together. Elements
+    // are not length-checked here because an empty option value is a normal
+    // form artefact; the transform below drops it before it reaches the DB.
+    assigneeIds: z.array(z.string()).default([]),
     gameId: z.string().nullish(),
+    // Free-text game name, only meaningful when no library game is chosen.
+    gameNote: z.string().nullish(),
   })
   .transform((data) => ({
     ...data,
     description: blank(data.description),
     dueDate: blank(data.dueDate),
-    assigneeId: blank(data.assigneeId),
     gameId: blank(data.gameId),
+    // A free-text name is only kept when the task is not tied to a library game.
+    gameNote: blank(data.gameId) ? null : blank(data.gameNote),
+    // Drop blanks and duplicates so the join table never gets junk rows.
+    assigneeIds: [...new Set(data.assigneeIds.filter(Boolean))],
   }))
   .refine(
     (data) => data.description === null || data.description.length <= 2000,
@@ -78,6 +86,9 @@ export const moveTaskSchema = z.object({
   status: z.enum(TaskStatus),
   // Index within the destination column, 0-based.
   toIndex: z.number().int().min(0),
+  // Whose board the card was dragged on, so ordering is computed against the
+  // same list the user saw. Ignored for members, who only have their own.
+  boardUserId: z.string().min(1).nullish(),
 });
 
 export type MoveTaskInput = z.infer<typeof moveTaskSchema>;

@@ -22,3 +22,16 @@ export const createProgressSchema = z.object({
 export type CreateProgressInput = z.infer<typeof createProgressSchema>;
 
 export const deleteProgressSchema = z.object({ id: z.string().min(1) });
+
+export const replyProgressSchema = z.object({
+  entryId: z.string().min(1),
+  body: z
+    .string()
+    .trim()
+    .min(1, "กรุณากรอกข้อความตอบกลับ")
+    .max(2000, "ข้อความตอบกลับต้องไม่เกิน 2000 ตัวอักษร"),
+});
+
+export const deleteProgressCommentSchema = z.object({
+  id: z.string().min(1),
+});

@@ -138,7 +138,10 @@ export async function loadDayDetail(
         id: true,
         title: true,
         status: true,
-        assignee: { select: { name: true, avatarColor: true } },
+        assignees: {
+          select: { user: { select: { name: true, avatarColor: true } } },
+          orderBy: { assignedAt: "asc" },
+        },
       },
     }),
   ]);
@@ -164,7 +167,7 @@ export async function loadDayDetail(
       id: task.id,
       title: task.title,
       done: task.status === TaskStatus.DONE,
-      assignee: task.assignee,
+      assignees: task.assignees.map((row) => row.user),
     })),
   };
 }

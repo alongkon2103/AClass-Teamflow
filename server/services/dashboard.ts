@@ -1,5 +1,5 @@
 import type { PrismaClient, Prisma } from "@prisma/client";
-import { Priority, Role, TaskStatus } from "@prisma/client";
+import { Priority, TaskStatus } from "@prisma/client";
 import { todayInBangkok } from "@/lib/date";
 
 /**
@@ -46,7 +46,9 @@ export function parseTaskFilters(params: {
 function whereFromFilters(filters: TaskFilters): Prisma.TaskWhereInput {
   return {
     archivedAt: null,
-    ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
+    ...(filters.assigneeId
+      ? { assignees: { some: { userId: filters.assigneeId } } }
+      : {}),
     ...(filters.status ? { status: filters.status } : {}),
     ...(filters.priority ? { priority: filters.priority } : {}),
     ...(filters.search
@@ -93,25 +95,37 @@ export function completionRate(
   return Math.round((counts[TaskStatus.DONE] / total) * 100);
 }
 
+/**
+ * Per-person workload. Everyone active is listed, leaders included — the board
+ * previously filtered to MEMBER, so leaders who carry tasks showed nothing.
+ * People with no tasks still appear, at 0, so the team roster stays complete.
+ */
 export async function loadWorkload(db: PrismaClient) {
-  const [members, grouped] = await Promise.all([
+  const [members, assignments] = await Promise.all([
     db.user.findMany({
-      where: { isActive: true, role: Role.MEMBER },
-      select: { id: true, name: true, jobTitle: true, avatarColor: true },
-      orderBy: { name: "asc" },
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        jobTitle: true,
+        avatarColor: true,
+        role: true,
+      },
+      orderBy: [{ role: "asc" }, { name: "asc" }],
     }),
-    db.task.groupBy({
-      by: ["assigneeId", "status"],
-      where: { archivedAt: null, assigneeId: { not: null } },
-      _count: { _all: true },
+    // One row per (person, task) — a shared task counts for each assignee.
+    db.taskAssignment.findMany({
+      where: { task: { archivedAt: null } },
+      select: { userId: true, task: { select: { status: true } } },
     }),
   ]);
 
   return members.map((member) => {
-    const rows = grouped.filter((row) => row.assigneeId === member.id);
-    const total = rows.reduce((sum, row) => sum + row._count._all, 0);
-    const done =
-      rows.find((row) => row.status === TaskStatus.DONE)?._count._all ?? 0;
+    const rows = assignments.filter((row) => row.userId === member.id);
+    const total = rows.length;
+    const done = rows.filter(
+      (row) => row.task.status === TaskStatus.DONE,
+    ).length;
     return {
       ...member,
       total,
@@ -135,7 +149,12 @@ export async function loadTaskPage(db: PrismaClient, filters: TaskFilters) {
         priority: true,
         startDate: true,
         dueDate: true,
-        assignee: { select: { id: true, name: true, avatarColor: true } },
+        assignees: {
+          select: {
+            user: { select: { id: true, name: true, avatarColor: true } },
+          },
+          orderBy: { assignedAt: "asc" },
+        },
       },
       orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
       skip: (filters.page - 1) * TASKS_PER_PAGE,

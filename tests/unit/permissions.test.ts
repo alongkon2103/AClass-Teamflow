@@ -14,9 +14,9 @@ const leader: Actor = { id: "leader-1", role: Role.LEADER };
 const member: Actor = { id: "member-1", role: Role.MEMBER };
 const otherMember: Actor = { id: "member-2", role: Role.MEMBER };
 
-const ownTask = { assigneeId: member.id, createdById: leader.id };
-const foreignTask = { assigneeId: otherMember.id, createdById: leader.id };
-const unassignedTask = { assigneeId: null, createdById: leader.id };
+const ownTask = { assigneeIds: [member.id], createdById: leader.id };
+const foreignTask = { assigneeIds: [otherMember.id], createdById: leader.id };
+const unassignedTask = { assigneeIds: [], createdById: leader.id };
 
 describe("task permissions", () => {
   it("lets only leaders view all tasks and the dashboard", () => {
@@ -51,16 +51,53 @@ describe("task permissions", () => {
   });
 
   it("restricts member task creation to themselves", () => {
-    expect(can(member, { type: "task:create", assigneeId: member.id })).toBe(
+    expect(can(member, { type: "task:create", assigneeIds: [member.id] })).toBe(
       true,
     );
     expect(can(member, { type: "task:create" })).toBe(true);
+    expect(can(member, { type: "task:create", assigneeIds: [] })).toBe(true);
     expect(
-      can(member, { type: "task:create", assigneeId: otherMember.id }),
+      can(member, { type: "task:create", assigneeIds: [otherMember.id] }),
+    ).toBe(false);
+    // Even including themselves, a member cannot pull someone else in.
+    expect(
+      can(member, {
+        type: "task:create",
+        assigneeIds: [member.id, otherMember.id],
+      }),
     ).toBe(false);
     expect(
-      can(leader, { type: "task:create", assigneeId: otherMember.id }),
+      can(leader, { type: "task:create", assigneeIds: [otherMember.id] }),
     ).toBe(true);
+  });
+
+  describe("shared tasks", () => {
+    it("lets every assignee act on a task they share", () => {
+      const shared = { assigneeIds: [member.id, otherMember.id] };
+      expect(can(member, { type: "task:update", task: shared })).toBe(true);
+      expect(can(otherMember, { type: "task:update", task: shared })).toBe(
+        true,
+      );
+      expect(can(member, { type: "progress:create", task: shared })).toBe(true);
+      expect(can(otherMember, { type: "progress:create", task: shared })).toBe(
+        true,
+      );
+    });
+
+    it("still shuts out someone who is not on the task", () => {
+      const shared = { assigneeIds: [otherMember.id] };
+      expect(can(member, { type: "task:update", task: shared })).toBe(false);
+      expect(can(member, { type: "task:delete", task: shared })).toBe(false);
+      expect(can(member, { type: "progress:create", task: shared })).toBe(
+        false,
+      );
+    });
+
+    it("gives nobody but a leader rights on an unassigned task", () => {
+      const orphan = { assigneeIds: [] };
+      expect(can(member, { type: "task:update", task: orphan })).toBe(false);
+      expect(can(leader, { type: "task:update", task: orphan })).toBe(true);
+    });
   });
 });
 
@@ -131,9 +168,12 @@ describe("leave permissions", () => {
 });
 
 describe("query scoping and routing", () => {
-  it("scopes task queries to the member's own tasks", () => {
+  it("scopes task queries to tasks the member is assigned to", () => {
     expect(taskVisibilityFilter(leader)).toEqual({});
-    expect(taskVisibilityFilter(member)).toEqual({ assigneeId: member.id });
+    // Matches a shared task too: the member only has to be one of the assignees.
+    expect(taskVisibilityFilter(member)).toEqual({
+      assignees: { some: { userId: member.id } },
+    });
   });
 
   it("routes each role to its landing page", () => {

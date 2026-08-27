@@ -50,7 +50,26 @@ export function TaskCardBody({
           {task.dueDate ? formatThaiDate(task.dueDate) : "ไม่มีเดดไลน์"}
           {overdue ? " · เลยกำหนด" : ""}
         </span>
-        {task.assignee ? <Avatar user={task.assignee} size={24} /> : null}
+        {task.assignees.length > 0 ? (
+          <span
+            className="flex items-center -space-x-1.5"
+            title={task.assignees.map((person) => person.name).join(", ")}
+          >
+            {task.assignees.slice(0, 3).map((person) => (
+              <span
+                key={person.id}
+                className="ring-surface inline-flex rounded-full ring-2"
+              >
+                <Avatar user={person} size={24} />
+              </span>
+            ))}
+            {task.assignees.length > 3 ? (
+              <span className="bg-hover text-muted-foreground ring-surface inline-flex size-6 items-center justify-center rounded-full text-[10px] font-bold ring-2">
+                +{task.assignees.length - 3}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
       </div>
 
       {task.progressCount > 0 ? (
