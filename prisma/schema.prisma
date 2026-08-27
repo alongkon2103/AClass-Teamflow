@@ -62,6 +62,8 @@ model User {
   role               Role     @default(MEMBER)
   jobTitle           String? // "Developer", "Designer"
   avatarColor        String // hex e.g. "#2E7CF6"
+  // Uploaded profile photo; avatarColor stays as the fallback when unset.
+  avatarUrl          String?
   // Forces a password change on first login (temporary passwords set by a leader).
   mustChangePassword Boolean  @default(false)
   isActive           Boolean  @default(true)

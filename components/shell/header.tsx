@@ -14,6 +14,7 @@ type HeaderUser = {
   role: Role;
   jobTitle: string | null;
   avatarColor: string;
+  avatarUrl: string | null;
 };
 
 export function Header({ user }: { user: HeaderUser }) {

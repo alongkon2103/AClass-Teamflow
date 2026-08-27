@@ -13,6 +13,7 @@ type AppTokenFields = {
   role: Role;
   jobTitle: string | null;
   avatarColor: string;
+  avatarUrl: string | null;
   mustChangePassword: boolean;
 };
 
@@ -47,6 +48,7 @@ export const authConfig = {
         token.role = user.role;
         token.jobTitle = user.jobTitle;
         token.avatarColor = user.avatarColor;
+        token.avatarUrl = user.avatarUrl;
         token.mustChangePassword = user.mustChangePassword;
       }
       // Lets the app clear the flag after a password change without re-login.
@@ -68,6 +70,7 @@ export const authConfig = {
         session.user.role = fields.role;
         session.user.jobTitle = fields.jobTitle;
         session.user.avatarColor = fields.avatarColor;
+        session.user.avatarUrl = fields.avatarUrl;
         session.user.mustChangePassword = fields.mustChangePassword;
       }
       return session;

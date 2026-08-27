@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
-import { env } from "@/lib/env";
 import { localStorageAdapter } from "./local";
 
 export {
@@ -29,15 +28,26 @@ const EXTENSION_BY_TYPE: Record<string, string> = {
   "image/webp": ".webp",
 };
 
+/** Where an upload is filed. Keeps avatars out of the progress image space. */
+export type UploadKind = "progress" | "avatar";
+
 /** Random, extension-normalised key: the client filename is never trusted. */
-export function buildObjectKey(originalName: string, contentType: string) {
+export function buildObjectKey(
+  originalName: string,
+  contentType: string,
+  kind: UploadKind = "progress",
+) {
   const extension =
     EXTENSION_BY_TYPE[contentType] ??
     (extname(originalName).toLowerCase() || ".bin");
-  return `progress/${randomUUID()}${extension}`;
+  return `${kind}/${randomUUID()}${extension}`;
 }
 
 async function resolveAdapter(): Promise<StorageAdapter> {
+  // Imported here rather than at module scope so the pure helpers above (which
+  // unit tests use) do not require a fully configured environment.
+  const { env } = await import("@/lib/env");
+
   switch (env.STORAGE_PROVIDER) {
     case "vercel-blob": {
       const { vercelBlobAdapter } = await import("./vercel-blob");
@@ -56,10 +66,11 @@ export async function putObject(
   originalName: string,
   body: Buffer,
   contentType: string,
+  kind: UploadKind = "progress",
 ): Promise<StoredFile> {
   const adapter = await resolveAdapter();
   return adapter.put(
-    buildObjectKey(originalName, contentType),
+    buildObjectKey(originalName, contentType, kind),
     body,
     contentType,
   );

@@ -123,7 +123,7 @@ export async function loadDayDetail(
         id: true,
         body: true,
         imageUrl: true,
-        author: { select: { name: true, avatarColor: true } },
+        author: { select: { name: true, avatarColor: true, avatarUrl: true } },
         task: { select: { id: true, title: true } },
       },
       orderBy: { createdAt: "asc" },
@@ -139,7 +139,11 @@ export async function loadDayDetail(
         title: true,
         status: true,
         assignees: {
-          select: { user: { select: { name: true, avatarColor: true } } },
+          select: {
+            user: {
+              select: { name: true, avatarColor: true, avatarUrl: true },
+            },
+          },
           orderBy: { assignedAt: "asc" },
         },
       },

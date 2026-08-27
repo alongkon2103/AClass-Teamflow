@@ -9,6 +9,7 @@ import {
   updateMemberSchema,
   setMemberActiveSchema,
   resetPasswordSchema,
+  setAvatarSchema,
 } from "@/lib/validators/member";
 import { changePasswordSchema } from "@/lib/validators/auth";
 import {
@@ -17,6 +18,7 @@ import {
   setMemberActive,
   resetMemberPassword,
   changeOwnPassword,
+  setOwnAvatar,
 } from "@/server/services/member";
 import { NotFoundError } from "@/server/services/task";
 import type { ActionResult } from "./task";
@@ -104,6 +106,25 @@ export async function resetMemberPasswordAction(
       parsed.data.temporaryPassword,
     );
     refresh();
+    return undefined;
+  });
+}
+
+/** Anyone may set their own photo; nobody may set someone else's. */
+export async function setOwnAvatarAction(
+  input: unknown,
+): Promise<ActionResult> {
+  return run(async () => {
+    const actor = await requireActor();
+    const parsed = setAvatarSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new ForbiddenError(
+        parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง",
+      );
+    }
+    await setOwnAvatar(db, actor, parsed.data.avatarUrl);
+    refresh();
+    revalidatePath("/account");
     return undefined;
   });
 }

@@ -87,7 +87,7 @@ export async function listNotifications(db: PrismaClient, actor: Actor) {
         payload: true,
         readAt: true,
         createdAt: true,
-        actor: { select: { name: true, avatarColor: true } },
+        actor: { select: { name: true, avatarColor: true, avatarUrl: true } },
       },
       orderBy: { createdAt: "desc" },
       take: NOTIFICATION_PAGE_SIZE,

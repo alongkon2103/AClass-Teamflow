@@ -107,7 +107,14 @@ export async function listBoardTasks(
       gameNote: true,
       assignees: {
         select: {
-          user: { select: { id: true, name: true, avatarColor: true } },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatarColor: true,
+              avatarUrl: true,
+            },
+          },
         },
         orderBy: { assignedAt: "asc" },
       },
@@ -316,7 +323,13 @@ export async function loadTaskFormOptions(db: PrismaClient, actor: Actor) {
     canChangeAssignee(actor)
       ? db.user.findMany({
           where: { isActive: true },
-          select: { id: true, name: true, jobTitle: true, avatarColor: true },
+          select: {
+            id: true,
+            name: true,
+            jobTitle: true,
+            avatarColor: true,
+            avatarUrl: true,
+          },
           orderBy: { name: "asc" },
         })
       : Promise.resolve([]),

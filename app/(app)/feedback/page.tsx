@@ -39,7 +39,13 @@ export default async function FeedbackPage({
     canReply
       ? db.user.findMany({
           where: { isActive: true },
-          select: { id: true, name: true, jobTitle: true, avatarColor: true },
+          select: {
+            id: true,
+            name: true,
+            jobTitle: true,
+            avatarColor: true,
+            avatarUrl: true,
+          },
           orderBy: { name: "asc" },
         })
       : Promise.resolve([]),

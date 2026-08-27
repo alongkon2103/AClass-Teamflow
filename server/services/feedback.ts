@@ -104,7 +104,7 @@ export async function listFeedback(db: PrismaClient, filters: FeedbackFilters) {
       repliedAt: true,
       linkedTaskId: true,
       game: { select: { id: true, name: true } },
-      repliedBy: { select: { name: true, avatarColor: true } },
+      repliedBy: { select: { name: true, avatarColor: true, avatarUrl: true } },
     },
     orderBy: { createdAt: "desc" },
   });

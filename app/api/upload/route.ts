@@ -5,6 +5,7 @@ import {
   MAX_IMAGE_BYTES,
   isAllowedImageType,
   putObject,
+  type UploadKind,
 } from "@/lib/storage";
 
 /**
@@ -23,6 +24,9 @@ export async function POST(request: Request) {
 
   const formData = await request.formData().catch(() => null);
   const file = formData?.get("file");
+  // Anything unrecognised files as a progress image rather than being trusted.
+  const kind: UploadKind =
+    formData?.get("kind") === "avatar" ? "avatar" : "progress";
 
   if (!(file instanceof File)) {
     return NextResponse.json(
@@ -59,7 +63,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const stored = await putObject(file.name, bytes, file.type);
+    const stored = await putObject(file.name, bytes, file.type, kind);
     return NextResponse.json({ ok: true, url: stored.url });
   } catch (error) {
     console.error("[upload]", error);

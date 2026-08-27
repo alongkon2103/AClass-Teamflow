@@ -32,6 +32,7 @@ export async function listMembers(db: PrismaClient) {
       role: true,
       jobTitle: true,
       avatarColor: true,
+      avatarUrl: true,
       isActive: true,
       mustChangePassword: true,
       _count: { select: { assignedTasks: true } },
@@ -62,9 +63,9 @@ export async function createMember(
   });
   if (existing) throw new ForbiddenError("อีเมลนี้ถูกใช้งานแล้ว");
 
-  const taken = (await db.user.findMany({ select: { avatarColor: true } })).map(
-    (user) => user.avatarColor,
-  );
+  const taken = (
+    await db.user.findMany({ select: { avatarColor: true, avatarUrl: true } })
+  ).map((user) => user.avatarColor);
 
   return db.user.create({
     data: {
@@ -159,6 +160,22 @@ export async function resetMemberPassword(
       mustChangePassword: true,
     },
     select: { id: true },
+  });
+}
+
+/**
+ * Sets or clears the signed-in user's profile photo. Only the URL is stored;
+ * the image itself already lives in object storage (SPEC section 1).
+ */
+export async function setOwnAvatar(
+  db: PrismaClient,
+  actor: Actor,
+  avatarUrl: string | null,
+) {
+  return db.user.update({
+    where: { id: actor.id },
+    data: { avatarUrl },
+    select: { id: true, avatarUrl: true },
   });
 }
 

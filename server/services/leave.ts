@@ -166,7 +166,9 @@ export async function listLeavesInRange(
       endDate: true,
       reason: true,
       status: true,
-      user: { select: { id: true, name: true, avatarColor: true } },
+      user: {
+        select: { id: true, name: true, avatarColor: true, avatarUrl: true },
+      },
     },
     orderBy: { startDate: "asc" },
   });
@@ -180,7 +182,9 @@ export async function listPendingLeaves(db: PrismaClient) {
       startDate: true,
       endDate: true,
       reason: true,
-      user: { select: { id: true, name: true, avatarColor: true } },
+      user: {
+        select: { id: true, name: true, avatarColor: true, avatarUrl: true },
+      },
     },
     orderBy: { startDate: "asc" },
   });

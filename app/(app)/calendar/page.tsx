@@ -44,7 +44,13 @@ export default async function CalendarPage({
     canDecide
       ? db.user.findMany({
           where: { isActive: true },
-          select: { id: true, name: true, jobTitle: true, avatarColor: true },
+          select: {
+            id: true,
+            name: true,
+            jobTitle: true,
+            avatarColor: true,
+            avatarUrl: true,
+          },
           orderBy: { name: "asc" },
         })
       : Promise.resolve([]),

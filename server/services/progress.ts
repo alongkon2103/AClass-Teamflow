@@ -21,14 +21,23 @@ export async function listProgressForTask(db: PrismaClient, taskId: string) {
       imageUrl: true,
       createdAt: true,
       authorId: true,
-      author: { select: { id: true, name: true, avatarColor: true } },
+      author: {
+        select: { id: true, name: true, avatarColor: true, avatarUrl: true },
+      },
       comments: {
         select: {
           id: true,
           body: true,
           createdAt: true,
           authorId: true,
-          author: { select: { id: true, name: true, avatarColor: true } },
+          author: {
+            select: {
+              id: true,
+              name: true,
+              avatarColor: true,
+              avatarUrl: true,
+            },
+          },
         },
         orderBy: { createdAt: "asc" },
       },

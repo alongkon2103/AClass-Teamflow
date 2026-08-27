@@ -50,3 +50,21 @@ export const resetPasswordSchema = z.object({
     .min(8, "รหัสผ่านชั่วคราวต้องมีอย่างน้อย 8 ตัวอักษร")
     .max(72),
 });
+
+/**
+ * The URL comes back from our own upload endpoint, so it is either a path we
+ * serve ourselves or an absolute URL from the configured storage provider.
+ */
+export const setAvatarSchema = z.object({
+  avatarUrl: z
+    .string()
+    .trim()
+    .max(2048)
+    .nullish()
+    .transform((value) => (value ? value : null))
+    .refine(
+      (value) =>
+        value === null || value.startsWith("/") || /^https?:\/\//.test(value),
+      "ที่อยู่รูปไม่ถูกต้อง",
+    ),
+});

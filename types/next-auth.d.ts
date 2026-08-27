@@ -14,6 +14,7 @@ declare module "next-auth" {
       role: Role;
       jobTitle: string | null;
       avatarColor: string;
+      avatarUrl: string | null;
       mustChangePassword: boolean;
     } & DefaultSession["user"];
   }
@@ -22,6 +23,7 @@ declare module "next-auth" {
     role: Role;
     jobTitle: string | null;
     avatarColor: string;
+    avatarUrl: string | null;
     mustChangePassword: boolean;
   }
 }

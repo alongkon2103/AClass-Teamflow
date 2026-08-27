@@ -109,6 +109,7 @@ export async function loadWorkload(db: PrismaClient) {
         name: true,
         jobTitle: true,
         avatarColor: true,
+        avatarUrl: true,
         role: true,
       },
       orderBy: [{ role: "asc" }, { name: "asc" }],
@@ -151,7 +152,14 @@ export async function loadTaskPage(db: PrismaClient, filters: TaskFilters) {
         dueDate: true,
         assignees: {
           select: {
-            user: { select: { id: true, name: true, avatarColor: true } },
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatarColor: true,
+                avatarUrl: true,
+              },
+            },
           },
           orderBy: { assignedAt: "asc" },
         },

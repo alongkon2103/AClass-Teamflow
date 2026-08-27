@@ -63,6 +63,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: true,
             jobTitle: true,
             avatarColor: true,
+            avatarUrl: true,
             isActive: true,
             mustChangePassword: true,
           },
@@ -89,6 +90,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           jobTitle: user.jobTitle,
           avatarColor: user.avatarColor,
+          avatarUrl: user.avatarUrl,
           mustChangePassword: user.mustChangePassword,
         };
       },
