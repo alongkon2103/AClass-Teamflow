@@ -115,7 +115,7 @@ MEMBER ที่พยายามเข้า `/dashboard` → redirect ไป 
 - **5.2 Dashboard (LEADER)** — การ์ดสถิติ 5 ใบ, โดนัทชาร์ต SVG, ภาระงานรายบุคคล, ตารางงาน
   (ค้นหา debounce 300ms + ฟิลเตอร์ member/status/priority sync URL, overdue สีแดง, pagination 20/หน้า)
 - **5.3 Kanban Board** — 4 คอลัมน์, dnd-kit drag&drop (optimistic + rollback), keyboard accessible,
-  LEADER มี user switcher (`?user=xxx`), การ์ดแสดง priority/title/desc/deadline/avatar/จำนวนอัพเดท
+  LEADER มี user switcher (`?user=xxx`), การ์ดแสดง priority/title/desc/deadline/avatar/จำนวนอัพเดป
 - **5.4 Task Dialog** — ฟิลด์งาน + ความคืบหน้ารายวัน (timeline, แนบรูป preview 5MB jpg/png/webp,
   ส่งแล้วบันทึกทันที, MEMBER ส่ง → notify LEADER ทุกคนใน transaction เดียว, โผล่บนปฏิทินตาม entryDate)
 - **5.5 ปฏิทิน** — month grid, ไฮไลต์ส้มวันมีคนลา (APPROVED เต็ม/PENDING ขอบประ), จุดน้ำเงินความคืบหน้า,

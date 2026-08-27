@@ -154,7 +154,7 @@ export function MonthGrid({
                     aria-hidden="true"
                     className="bg-primary size-1.5 rounded-full"
                   />
-                  {progressCount} อัพเดท
+                  {progressCount} อัปเดท
                 </span>
               ) : null}
 
