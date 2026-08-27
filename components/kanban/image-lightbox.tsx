@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { X } from "lucide-react";
 
 /**
- * Full-size view of a progress image. Rendered only while open, closes on
- * Escape or a click outside, and returns focus handling to the browser.
+ * Full-size view of a progress image.
+ *
+ * Rendered through a portal on document.body: the dialog it is opened from is
+ * centred with a CSS transform, and a transformed ancestor becomes the
+ * containing block for `position: fixed`, so an inline overlay would be pinned
+ * to the dialog instead of the viewport.
  */
 export function ImageLightbox({
   src,
@@ -15,30 +20,38 @@ export function ImageLightbox({
   src: string | null;
   onClose: () => void;
 }) {
+  // document only exists on the client; wait for mount before portalling.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
     if (!src) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      // Close only the image, not the task dialog underneath it.
+      event.stopPropagation();
+      onClose();
     };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    // Capture phase, so this runs before the dialog's own Escape handler.
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [src, onClose]);
 
-  if (!src) return null;
+  if (!src || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label="ดูรูปขนาดเต็ม"
       onClick={onClose}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-6"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-6"
     >
       <button
         type="button"
         onClick={onClose}
         aria-label="ปิด"
-        className="absolute top-4 right-4 inline-flex size-10 items-center justify-center rounded-xl bg-white/10 text-white"
+        className="absolute top-4 right-4 inline-flex size-10 items-center justify-center rounded-xl bg-white/15 text-white hover:bg-white/25"
       >
         <X size={18} strokeWidth={2} />
       </button>
@@ -50,8 +63,9 @@ export function ImageLightbox({
         height={1200}
         unoptimized
         onClick={(event) => event.stopPropagation()}
-        className="max-h-full w-auto max-w-full rounded-xl object-contain"
+        className="max-h-[90vh] w-auto max-w-full rounded-xl object-contain"
       />
-    </div>
+    </div>,
+    document.body,
   );
 }
