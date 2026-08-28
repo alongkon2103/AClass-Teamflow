@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { excerpt } from "@/server/services/progress";
-import { createProgressSchema } from "@/lib/validators/progress";
+import {
+  createProgressSchema,
+  MAX_PROGRESS_IMAGES,
+} from "@/lib/validators/progress";
 import { isAllowedImageType, MAX_IMAGE_BYTES } from "@/lib/storage/limits";
 import { buildObjectKey } from "@/lib/storage";
 import { resolveUploadPath, UPLOAD_ROOT } from "@/lib/storage/local";
@@ -29,10 +32,40 @@ describe("excerpt", () => {
 describe("createProgressSchema", () => {
   const base = { taskId: "t1", entryDate: "2026-08-26", body: "ทำงานเสร็จ" };
 
-  it("accepts a valid entry and nulls a blank image", () => {
+  it("accepts an entry with no images at all", () => {
+    expect(createProgressSchema.parse(base).imageUrls).toEqual([]);
+  });
+
+  it("keeps several images in the order they were attached", () => {
+    const urls = ["/a.jpg", "/b.jpg", "/c.jpg"];
     expect(
-      createProgressSchema.parse({ ...base, imageUrl: "" }).imageUrl,
-    ).toBeNull();
+      createProgressSchema.parse({ ...base, imageUrls: urls }).imageUrls,
+    ).toEqual(urls);
+  });
+
+  it("drops blank entries that would render as broken images", () => {
+    expect(
+      createProgressSchema.parse({
+        ...base,
+        imageUrls: ["/a.jpg", "", "/b.jpg"],
+      }).imageUrls,
+    ).toEqual(["/a.jpg", "/b.jpg"]);
+  });
+
+  it("refuses more images than one update may carry", () => {
+    const tooMany = Array.from(
+      { length: MAX_PROGRESS_IMAGES + 1 },
+      (_, i) => `/img-${i}.jpg`,
+    );
+    expect(
+      createProgressSchema.safeParse({ ...base, imageUrls: tooMany }).success,
+    ).toBe(false);
+    expect(
+      createProgressSchema.safeParse({
+        ...base,
+        imageUrls: tooMany.slice(0, MAX_PROGRESS_IMAGES),
+      }).success,
+    ).toBe(true);
   });
 
   it("rejects an empty body", () => {

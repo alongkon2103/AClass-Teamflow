@@ -75,7 +75,7 @@ export function TaskCardBody({
       {task.progressCount > 0 ? (
         <p className="text-muted-foreground mt-2 inline-flex items-center gap-1.5 text-[11px]">
           <MessageSquare size={12} strokeWidth={2} />
-          {task.progressCount} อัพเดป
+          {task.progressCount} อัปเดต
         </p>
       ) : null}
     </>

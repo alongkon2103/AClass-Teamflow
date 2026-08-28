@@ -2,6 +2,9 @@ import { z } from "zod";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Upper bound per update, so one entry cannot flood the timeline. */
+export const MAX_PROGRESS_IMAGES = 10;
+
 /** Shared by the progress composer (client) and the server action. */
 export const createProgressSchema = z.object({
   taskId: z.string().min(1),
@@ -11,12 +14,12 @@ export const createProgressSchema = z.object({
     .trim()
     .min(1, "กรุณากรอกความคืบหน้า")
     .max(2000, "ความคืบหน้าต้องไม่เกิน 2000 ตัวอักษร"),
-  imageUrl: z
-    .string()
-    .trim()
-    .max(2048)
-    .nullish()
-    .transform((value) => (value ? value : null)),
+  imageUrls: z
+    .array(z.string().trim().max(2048))
+    .max(MAX_PROGRESS_IMAGES, `แนบรูปได้ไม่เกิน ${MAX_PROGRESS_IMAGES} รูป`)
+    .default([])
+    // Blanks would render as broken images, so they never reach the database.
+    .transform((urls) => urls.filter(Boolean)),
 });
 
 export type CreateProgressInput = z.infer<typeof createProgressSchema>;

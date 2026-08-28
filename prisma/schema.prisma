@@ -127,7 +127,8 @@ model ProgressEntry {
   authorId  String
   entryDate DateTime @db.Date // date the progress is for (shown on the calendar)
   body      String
-  imageUrl  String?
+  // Several photos per update; order is the order they were attached.
+  imageUrls String[] @default([])
   createdAt DateTime @default(now())
 
   task     Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)

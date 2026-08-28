@@ -18,7 +18,7 @@ export async function listProgressForTask(db: PrismaClient, taskId: string) {
       id: true,
       entryDate: true,
       body: true,
-      imageUrl: true,
+      imageUrls: true,
       createdAt: true,
       authorId: true,
       author: {
@@ -155,7 +155,7 @@ export async function createProgress(
         authorId: actor.id,
         entryDate: parseCalendarDate(input.entryDate),
         body: input.body,
-        imageUrl: input.imageUrl,
+        imageUrls: input.imageUrls,
       },
       select: { id: true, entryDate: true },
     });

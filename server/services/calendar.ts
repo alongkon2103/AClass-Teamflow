@@ -122,7 +122,7 @@ export async function loadDayDetail(
       select: {
         id: true,
         body: true,
-        imageUrl: true,
+        imageUrls: true,
         author: { select: { name: true, avatarColor: true, avatarUrl: true } },
         task: { select: { id: true, title: true } },
       },
@@ -163,7 +163,7 @@ export async function loadDayDetail(
     progress: progress.map((entry) => ({
       id: entry.id,
       body: entry.body,
-      imageUrl: entry.imageUrl,
+      imageUrls: entry.imageUrls,
       author: entry.author,
       taskTitle: entry.task.title,
     })),

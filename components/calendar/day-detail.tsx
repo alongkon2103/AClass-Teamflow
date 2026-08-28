@@ -13,6 +13,10 @@ import {
 import { Avatar } from "@/components/shared/avatar";
 import { Skeleton } from "@/components/shared/skeleton";
 import { formatThaiDate } from "@/lib/format";
+import {
+  ImageLightbox,
+  type LightboxState,
+} from "@/components/kanban/image-lightbox";
 import { loadDayDetailAction } from "@/server/actions/leave";
 
 type Detail = Awaited<ReturnType<typeof loadDayDetailAction>>;
@@ -25,6 +29,7 @@ export function DayDetailDialog({
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [lightbox, setLightbox] = useState<LightboxState>(null);
 
   useEffect(() => {
     if (!day) {
@@ -161,15 +166,33 @@ export function DayDetailDialog({
                       <p className="mt-1.5 text-[13px] leading-relaxed whitespace-pre-wrap">
                         {entry.body}
                       </p>
-                      {entry.imageUrl ? (
-                        <Image
-                          src={entry.imageUrl}
-                          alt="รูปประกอบความคืบหน้า"
-                          width={420}
-                          height={280}
-                          unoptimized
-                          className="border-line mt-2 h-auto max-h-44 w-auto rounded-xl border object-cover"
-                        />
+                      {entry.imageUrls.length > 0 ? (
+                        <ul className="mt-2 flex flex-wrap gap-2">
+                          {entry.imageUrls.map((url, position) => (
+                            <li key={url}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setLightbox({
+                                    images: entry.imageUrls,
+                                    index: position,
+                                  })
+                                }
+                                aria-label={`ดูรูปที่ ${position + 1} ขนาดเต็ม`}
+                                className="block cursor-zoom-in"
+                              >
+                                <Image
+                                  src={url}
+                                  alt=""
+                                  width={140}
+                                  height={140}
+                                  unoptimized
+                                  className="border-line size-20 rounded-lg border object-cover"
+                                />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
                       ) : null}
                     </li>
                   ))}
@@ -178,6 +201,8 @@ export function DayDetailDialog({
             ) : null}
           </div>
         )}
+
+        <ImageLightbox state={lightbox} onClose={() => setLightbox(null)} />
       </DialogContent>
     </Dialog>
   );

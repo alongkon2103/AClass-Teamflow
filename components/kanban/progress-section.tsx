@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Skeleton } from "@/components/shared/skeleton";
 import { formatThaiDate } from "@/lib/format";
 import { MAX_IMAGE_BYTES, ALLOWED_IMAGE_TYPES } from "@/lib/storage/limits";
+import { MAX_PROGRESS_IMAGES } from "@/lib/validators/progress";
 import {
   createProgressAction,
   deleteProgressAction,
@@ -18,14 +19,14 @@ import {
   loadProgressAction,
   replyProgressAction,
 } from "@/server/actions/progress";
-import { ImageLightbox } from "./image-lightbox";
+import { ImageLightbox, type LightboxState } from "./image-lightbox";
 import { ProgressReplies } from "./progress-replies";
 
 export type ProgressEntryView = {
   id: string;
   entryDate: string;
   body: string;
-  imageUrl: string | null;
+  imageUrls: string[];
   authorId: string;
   author: { id: string; name: string; avatarColor: string };
   canDelete: boolean;
@@ -56,14 +57,21 @@ export function ProgressSection({
   const [entries, setEntries] = useState<ProgressEntryView[] | null>(null);
   const [body, setBody] = useState("");
   const [entryDate, setEntryDate] = useState(today);
-  const [image, setImage] = useState<{ file: File; preview: string } | null>(
-    null,
-  );
+  const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [pending, startTransition] = useTransition();
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const [lightbox, setLightbox] = useState<LightboxState>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const reload = async () => setEntries(await loadProgressAction(taskId));
+
+  // Kept in a ref so the unmount cleanup sees the latest list without
+  // re-running (and revoking live previews) on every change.
+  const imagesRef = useRef<{ file: File; preview: string }[]>([]);
+  imagesRef.current = images;
 
   useEffect(() => {
     let cancelled = false;
@@ -76,35 +84,73 @@ export function ProgressSection({
     };
   }, [taskId]);
 
-  // Release the object URL when the preview is replaced or cleared.
+  // Revoke every preview URL when the composer unmounts. Removing one
+  // attachment revokes that one directly, so nothing leaks either way.
   useEffect(() => {
     return () => {
-      if (image) URL.revokeObjectURL(image.preview);
+      for (const item of imagesRef.current) URL.revokeObjectURL(item.preview);
     };
-  }, [image]);
+  }, []);
 
-  const pickImage = (file: File | undefined) => {
-    if (!file) return;
-    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-      toast.error("รองรับเฉพาะไฟล์ JPG, PNG และ WebP");
-      return;
+  /** Adds whatever is valid and says once what was skipped and why. */
+  const addImages = (incoming: File[]) => {
+    if (incoming.length === 0) return;
+
+    const accepted: { file: File; preview: string }[] = [];
+    let wrongType = 0;
+    let tooBig = 0;
+
+    for (const file of incoming) {
+      if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+        wrongType += 1;
+        continue;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        tooBig += 1;
+        continue;
+      }
+      accepted.push({ file, preview: URL.createObjectURL(file) });
     }
-    if (file.size > MAX_IMAGE_BYTES) {
-      toast.error("ไฟล์ต้องมีขนาดไม่เกิน 5MB");
-      return;
+
+    if (wrongType > 0) {
+      toast.error(`ข้าม ${wrongType} ไฟล์ที่ไม่ใช่ JPG, PNG หรือ WebP`);
     }
-    setImage({ file, preview: URL.createObjectURL(file) });
+    if (tooBig > 0) {
+      toast.error(`ข้าม ${tooBig} ไฟล์ที่ใหญ่เกิน 5MB`);
+    }
+    if (accepted.length === 0) return;
+
+    setImages((current) => {
+      const room = MAX_PROGRESS_IMAGES - current.length;
+      if (room <= 0) {
+        toast.error(`แนบได้สูงสุด ${MAX_PROGRESS_IMAGES} รูปต่อหนึ่งอัปเดต`);
+        for (const item of accepted) URL.revokeObjectURL(item.preview);
+        return current;
+      }
+      if (accepted.length > room) {
+        toast.error(`แนบได้อีก ${room} รูปเท่านั้น`);
+        for (const item of accepted.slice(room)) {
+          URL.revokeObjectURL(item.preview);
+        }
+      }
+      return [...current, ...accepted.slice(0, room)];
+    });
   };
 
-  /** Ctrl+V straight into the box attaches the pasted screenshot. */
+  const removeImage = (preview: string) => {
+    URL.revokeObjectURL(preview);
+    setImages((current) => current.filter((item) => item.preview !== preview));
+  };
+
+  /** Ctrl+V straight into the box attaches every image on the clipboard. */
   const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const file = Array.from(event.clipboardData.files).find((item) =>
+    const files = Array.from(event.clipboardData.files).filter((item) =>
       item.type.startsWith("image/"),
     );
-    if (!file) return;
-    // Stop the image's placeholder text from also landing in the textarea.
+    if (files.length === 0) return;
+    // Stop the images' placeholder text from also landing in the textarea.
     event.preventDefault();
-    pickImage(file);
+    addImages(files);
   };
 
   const submit = () => {
@@ -114,28 +160,36 @@ export function ProgressSection({
     }
 
     startTransition(async () => {
-      let imageUrl: string | null = null;
+      // All-or-nothing: a half-uploaded set would silently lose photos, so a
+      // single failure stops the whole submission and nothing is saved.
+      const imageUrls: string[] = [];
+      for (const [position, item] of images.entries()) {
+        setUploading({ done: position, total: images.length });
 
-      if (image) {
         const payload = new FormData();
-        payload.append("file", image.file);
+        payload.append("file", item.file);
+
         const response = await fetch("/api/upload", {
           method: "POST",
           body: payload,
         });
         const result = await response.json();
         if (!response.ok || !result.ok) {
-          toast.error(result.message ?? "อัปโหลดรูปไม่สำเร็จ");
+          setUploading(null);
+          toast.error(
+            result.message ?? `อัปโหลดรูปที่ ${position + 1} ไม่สำเร็จ`,
+          );
           return;
         }
-        imageUrl = result.url as string;
+        imageUrls.push(result.url as string);
       }
+      setUploading(null);
 
       const result = await createProgressAction({
         taskId,
         entryDate,
         body,
-        imageUrl,
+        imageUrls,
       });
 
       if (!result.ok) {
@@ -145,7 +199,8 @@ export function ProgressSection({
 
       toast.success("ส่งความคืบหน้าแล้ว");
       setBody("");
-      setImage(null);
+      for (const item of images) URL.revokeObjectURL(item.preview);
+      setImages([]);
       if (fileInput.current) fileInput.current.value = "";
       await reload();
       onSaved();
@@ -206,22 +261,33 @@ export function ProgressSection({
               <p className="mt-2 text-[13px] leading-relaxed whitespace-pre-wrap">
                 {entry.body}
               </p>
-              {entry.imageUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setLightbox(entry.imageUrl)}
-                  aria-label="ดูรูปขนาดเต็ม"
-                  className="mt-2 block cursor-zoom-in"
-                >
-                  <Image
-                    src={entry.imageUrl}
-                    alt="รูปประกอบความคืบหน้า"
-                    width={480}
-                    height={320}
-                    unoptimized
-                    className="border-line h-auto max-h-48 w-auto rounded-xl border object-cover"
-                  />
-                </button>
+              {entry.imageUrls.length > 0 ? (
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {entry.imageUrls.map((url, position) => (
+                    <li key={url}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLightbox({
+                            images: entry.imageUrls,
+                            index: position,
+                          })
+                        }
+                        aria-label={`ดูรูปที่ ${position + 1} ขนาดเต็ม`}
+                        className="block cursor-zoom-in"
+                      >
+                        <Image
+                          src={url}
+                          alt=""
+                          width={160}
+                          height={160}
+                          unoptimized
+                          className="border-line size-24 rounded-xl border object-cover"
+                        />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               ) : null}
 
               <ProgressReplies
@@ -265,30 +331,34 @@ export function ProgressSection({
           onChange={(event) => setBody(event.target.value)}
           onPaste={onPaste}
           rows={2}
-          placeholder="วันนี้ทำอะไรไปบ้าง (วางรูปด้วย Ctrl+V ได้)"
+          placeholder="วันนี้ทำอะไรไปบ้าง (แนบได้หลายรูป หรือวางด้วย Ctrl+V)"
           aria-label="ข้อความความคืบหน้า"
           className="border-none bg-transparent p-0 focus-visible:ring-0"
         />
 
-        {image ? (
-          <div className="relative mt-2 inline-block">
-            <Image
-              src={image.preview}
-              alt="ตัวอย่างรูปที่จะแนบ"
-              width={160}
-              height={120}
-              unoptimized
-              className="border-line h-auto max-h-24 w-auto rounded-lg border object-cover"
-            />
-            <button
-              type="button"
-              onClick={() => setImage(null)}
-              aria-label="เอารูปออก"
-              className="bg-surface border-line absolute -top-2 -right-2 inline-flex size-6 items-center justify-center rounded-full border"
-            >
-              <X size={12} strokeWidth={2} />
-            </button>
-          </div>
+        {images.length > 0 ? (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {images.map((item, position) => (
+              <li key={item.preview} className="relative">
+                <Image
+                  src={item.preview}
+                  alt={`ตัวอย่างรูปที่ ${position + 1}`}
+                  width={120}
+                  height={120}
+                  unoptimized
+                  className="border-line size-20 rounded-lg border object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeImage(item.preview)}
+                  aria-label={`เอารูปที่ ${position + 1} ออก`}
+                  className="bg-surface border-line absolute -top-2 -right-2 inline-flex size-6 items-center justify-center rounded-full border"
+                >
+                  <X size={12} strokeWidth={2} />
+                </button>
+              </li>
+            ))}
+          </ul>
         ) : null}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -306,8 +376,11 @@ export function ProgressSection({
             ref={fileInput}
             type="file"
             accept={ALLOWED_IMAGE_TYPES.join(",")}
+            multiple
             className="sr-only"
-            onChange={(event) => pickImage(event.target.files?.[0])}
+            onChange={(event) =>
+              addImages(Array.from(event.target.files ?? []))
+            }
           />
           <Button
             type="button"
@@ -318,6 +391,7 @@ export function ProgressSection({
           >
             <ImagePlus size={14} strokeWidth={2} />
             แนบรูป
+            {images.length > 0 ? ` (${images.length})` : ""}
           </Button>
 
           <Button
@@ -327,11 +401,15 @@ export function ProgressSection({
             onClick={submit}
             disabled={pending}
           >
-            {pending ? "กำลังส่ง" : "ส่งความคืบหน้า"}
+            {uploading
+              ? `กำลังอัปโหลด ${uploading.done + 1}/${uploading.total}`
+              : pending
+                ? "กำลังส่ง"
+                : "ส่งความคืบหน้า"}
           </Button>
         </div>
       </div>
-      <ImageLightbox src={lightbox} onClose={() => setLightbox(null)} />
+      <ImageLightbox state={lightbox} onClose={() => setLightbox(null)} />
     </section>
   );
 }

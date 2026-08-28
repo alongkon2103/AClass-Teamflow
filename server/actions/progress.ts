@@ -118,7 +118,7 @@ export async function loadProgressAction(taskId: string) {
     id: entry.id,
     entryDate: formatCalendarDate(entry.entryDate),
     body: entry.body,
-    imageUrl: entry.imageUrl,
+    imageUrls: entry.imageUrls,
     authorId: entry.authorId,
     author: entry.author,
     canDelete: actor.role === "LEADER" || entry.authorId === actor.id,
