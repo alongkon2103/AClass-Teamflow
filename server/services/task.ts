@@ -1,5 +1,5 @@
-import type { PrismaClient, Prisma, TaskStatus } from "@prisma/client";
-import { NotificationType } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
+import { NotificationType, TaskStatus } from "@prisma/client";
 import {
   type Actor,
   assertCan,
@@ -7,7 +7,7 @@ import {
   taskVisibilityFilter,
   ForbiddenError,
 } from "@/lib/permissions";
-import { parseCalendarDate } from "@/lib/date";
+import { parseCalendarDate, todayInBangkok } from "@/lib/date";
 import type { TaskFormInput, MoveTaskInput } from "@/lib/validators/task";
 
 /**
@@ -61,6 +61,17 @@ function assertAssigneeChangeAllowed(
   }
 }
 
+/**
+ * The day a task is considered delivered. Recorded when it reaches DONE and
+ * cleared when it leaves, so reopening work does not leave a stale date behind.
+ */
+function completionFor(status: TaskStatus, previous: Date | null): Date | null {
+  if (status !== TaskStatus.DONE) return null;
+  // Keep the original day if it was already finished, so an unrelated edit
+  // does not quietly move the delivery date forward.
+  return previous ?? todayInBangkok();
+}
+
 /** Notifies each newly assigned person, skipping whoever made the change. */
 async function notifyAssigned(
   tx: Prisma.TransactionClient,
@@ -102,6 +113,7 @@ export async function listBoardTasks(
       priority: true,
       startDate: true,
       dueDate: true,
+      completedAt: true,
       sortOrder: true,
       gameId: true,
       gameNote: true,
@@ -159,6 +171,7 @@ export async function createTask(
         dueDate: input.dueDate ? parseCalendarDate(input.dueDate) : null,
         gameId: input.gameId,
         gameNote: input.gameNote,
+        completedAt: completionFor(input.status, null),
         createdById: actor.id,
         sortOrder: (last?.sortOrder ?? 0) + SORT_STEP,
         assignees: {
@@ -187,6 +200,7 @@ export async function updateTask(
       id: true,
       createdById: true,
       title: true,
+      completedAt: true,
       assignees: { select: { userId: true } },
     },
   });
@@ -219,6 +233,7 @@ export async function updateTask(
         dueDate: input.dueDate ? parseCalendarDate(input.dueDate) : null,
         gameId: input.gameId,
         gameNote: input.gameNote,
+        completedAt: completionFor(input.status, existing.completedAt),
         assignees: {
           deleteMany: { userId: { notIn: input.assigneeIds } },
           // Existing rows are left alone so their assignedAt (and card order)
@@ -252,6 +267,7 @@ export async function moveTask(
     select: {
       id: true,
       status: true,
+      completedAt: true,
       assignees: { select: { userId: true } },
     },
   });
@@ -281,6 +297,7 @@ export async function moveTask(
     data: {
       status: input.status,
       sortOrder: sortOrderForIndex(siblings, input.toIndex),
+      completedAt: completionFor(input.status, task.completedAt),
     },
     select: { id: true, status: true, sortOrder: true },
   });

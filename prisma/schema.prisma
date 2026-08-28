@@ -77,6 +77,7 @@ model User {
   leaves           Leave[]           @relation("LeaveUser")
   decidedLeaves    Leave[]           @relation("LeaveDecider")
   repliedFeedback  Feedback[]        @relation("FeedbackReplier")
+  meetings         Meeting[]         @relation("MeetingRecorder")
   notifications    Notification[]    @relation("NotifRecipient")
   actedNotifs      Notification[]    @relation("NotifActor")
 }
@@ -97,6 +98,9 @@ model Task {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   archivedAt  DateTime? // soft delete
+  // Calendar day the task reached DONE. Needed to tell an on-time delivery from
+  // a late one; updatedAt cannot, because any edit moves it.
+  completedAt DateTime?  @db.Date
 
   createdBy User             @relation("TaskCreator", fields: [createdById], references: [id])
   game      Game?            @relation(fields: [gameId], references: [id], onDelete: SetNull)
@@ -203,6 +207,21 @@ model Leave {
 
   @@index([startDate, endDate])
   @@index([userId])
+}
+
+/// A recorded meeting and what was decided in it.
+model Meeting {
+  id          String   @id @default(cuid())
+  title       String
+  meetingAt   DateTime @db.Date
+  summary     String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User @relation("MeetingRecorder", fields: [createdById], references: [id])
+
+  @@index([meetingAt])
 }
 
 model Notification {

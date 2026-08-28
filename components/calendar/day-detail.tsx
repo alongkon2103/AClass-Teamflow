@@ -13,6 +13,7 @@ import {
 import { Avatar } from "@/components/shared/avatar";
 import { Skeleton } from "@/components/shared/skeleton";
 import { formatThaiDate } from "@/lib/format";
+import { deliveryState, DELIVERY_META } from "@/lib/delivery";
 import {
   ImageLightbox,
   type LightboxState,
@@ -23,9 +24,12 @@ type Detail = Awaited<ReturnType<typeof loadDayDetailAction>>;
 
 export function DayDetailDialog({
   day,
+  today,
   onClose,
 }: {
   day: string | null;
+  /** Today in Bangkok, so "missed" is judged against the user's day. */
+  today: string;
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -123,24 +127,41 @@ export function DayDetailDialog({
                   ครบกำหนดส่งวันนี้
                 </h3>
                 <ul className="flex flex-col gap-2">
-                  {detail.dueTasks.map((task) => (
-                    <li
-                      key={task.id}
-                      className="rounded-xl px-3 py-2 text-[13px]"
-                      style={{
-                        background:
-                          "color-mix(in srgb, var(--color-danger) 12%, transparent)",
-                      }}
-                    >
-                      {task.title}
-                      {task.assignees.length > 0 ? (
-                        <span className="text-muted-foreground text-xs">
-                          {" "}
-                          · {task.assignees.map((a) => a.name).join(", ")}
+                  {detail.dueTasks.map((task) => {
+                    const state = deliveryState({
+                      status: task.status,
+                      dueDate: task.dueDate,
+                      completedAt: task.completedAt,
+                      today,
+                    });
+                    const meta = DELIVERY_META[state];
+                    return (
+                      <li
+                        key={task.id}
+                        className="flex flex-wrap items-center gap-2 rounded-xl px-3 py-2 text-[13px]"
+                        style={{
+                          background: `color-mix(in srgb, ${meta.mark} 14%, transparent)`,
+                          borderLeft: `3px solid ${meta.mark}`,
+                        }}
+                      >
+                        <span>{task.title}</span>
+                        {task.assignees.length > 0 ? (
+                          <span className="text-muted-foreground text-xs">
+                            · {task.assignees.map((a) => a.name).join(", ")}
+                          </span>
+                        ) : null}
+                        <span
+                          className="ml-auto text-[11px] font-bold whitespace-nowrap"
+                          style={{ color: meta.ink }}
+                        >
+                          {meta.label}
+                          {state === "late" && task.completedAt
+                            ? ` · ส่ง ${formatThaiDate(task.completedAt)}`
+                            : ""}
                         </span>
-                      ) : null}
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             ) : null}

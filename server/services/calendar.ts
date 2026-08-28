@@ -1,5 +1,4 @@
 import type { PrismaClient } from "@prisma/client";
-import { TaskStatus } from "@prisma/client";
 import { type Actor, taskVisibilityFilter } from "@/lib/permissions";
 import { parseCalendarDate, formatCalendarDate } from "@/lib/date";
 import { listLeavesInRange } from "./leave";
@@ -138,6 +137,8 @@ export async function loadDayDetail(
         id: true,
         title: true,
         status: true,
+        dueDate: true,
+        completedAt: true,
         assignees: {
           select: {
             user: {
@@ -170,7 +171,11 @@ export async function loadDayDetail(
     dueTasks: dueTasks.map((task) => ({
       id: task.id,
       title: task.title,
-      done: task.status === TaskStatus.DONE,
+      status: task.status,
+      dueDate: task.dueDate ? formatCalendarDate(task.dueDate) : null,
+      completedAt: task.completedAt
+        ? formatCalendarDate(task.completedAt)
+        : null,
       assignees: task.assignees.map((row) => row.user),
     })),
   };

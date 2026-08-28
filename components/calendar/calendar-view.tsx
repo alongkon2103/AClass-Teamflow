@@ -28,7 +28,11 @@ export function CalendarView({
         today={today}
         onSelectDay={setSelectedDay}
       />
-      <DayDetailDialog day={selectedDay} onClose={() => setSelectedDay(null)} />
+      <DayDetailDialog
+        day={selectedDay}
+        today={today}
+        onClose={() => setSelectedDay(null)}
+      />
     </>
   );
 }

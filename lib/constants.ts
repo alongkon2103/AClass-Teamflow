@@ -8,6 +8,7 @@ import {
   Eye,
   LayoutGrid,
   MessageSquare,
+  NotebookPen,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -159,6 +160,12 @@ export const NAV_ITEMS = [
   },
   { href: "/board", label: "บอร์ดคัมบัง", icon: Columns3, leaderOnly: false },
   { href: "/calendar", label: "ปฏิทิน", icon: CalendarDays, leaderOnly: false },
+  {
+    href: "/meetings",
+    label: "ประชุม",
+    icon: NotebookPen,
+    leaderOnly: false,
+  },
   {
     href: "/feedback",
     label: "Feedback",

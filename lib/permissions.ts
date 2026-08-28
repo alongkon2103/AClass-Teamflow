@@ -41,6 +41,8 @@ export type Action =
   // leave
   | { type: "leave:request"; leave: LeaveResource }
   | { type: "leave:decide" }
+  // meetings
+  | { type: "meeting:manage" }
   // members
   | { type: "member:manage" }
   // dashboard
@@ -85,6 +87,7 @@ export function can(actor: Actor, action: Action): boolean {
     case "game:manage":
     case "progress:reply":
     case "feedback:reply":
+    case "meeting:manage":
     case "member:manage":
     case "leave:decide":
       return isLeader(actor);
