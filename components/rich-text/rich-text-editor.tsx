@@ -174,7 +174,10 @@ export function RichTextEditor({
       },
     },
     onUpdate: ({ editor: instance }) => {
-      onChange(instance.getJSON() as RichTextDoc);
+      // ProseMirror builds node attrs with Object.create(null), and a Server
+      // Action refuses to serialise a null-prototype object — a mention would
+      // arrive with its attrs missing. The JSON round trip makes them plain.
+      onChange(JSON.parse(JSON.stringify(instance.getJSON())) as RichTextDoc);
     },
   });
 

@@ -36,51 +36,60 @@ export type RichNode =
   | { type: "blockquote"; content?: RichNode[] }
   | { type: "codeBlock"; content?: RichNode[] };
 
+// A union failure would otherwise surface zod's English "Invalid input".
+const NODE_ERROR = "รูปแบบข้อความไม่ถูกต้อง";
+
 const nodeSchema: z.ZodType<RichNode> = z.lazy(() =>
-  z.union([
-    z.object({
-      type: z.literal("text"),
-      text: z.string().max(20000),
-      marks: z.array(markSchema).max(4).optional(),
-    }),
-    z.object({ type: z.literal("hardBreak") }),
-    z.object({ type: z.literal("mention"), attrs: mentionAttrsSchema }),
-    z.object({
-      type: z.literal("paragraph"),
-      content: z.array(nodeSchema).max(200).optional(),
-    }),
-    z.object({
-      type: z.literal("heading"),
-      attrs: z.object({ level: z.union([z.literal(2), z.literal(3)]) }),
-      content: z.array(nodeSchema).max(200).optional(),
-    }),
-    z.object({
-      type: z.literal("bulletList"),
-      content: z.array(nodeSchema).max(200).optional(),
-    }),
-    z.object({
-      type: z.literal("orderedList"),
-      content: z.array(nodeSchema).max(200).optional(),
-    }),
-    z.object({
-      type: z.literal("listItem"),
-      content: z.array(nodeSchema).max(200).optional(),
-    }),
-    z.object({
-      type: z.literal("blockquote"),
-      content: z.array(nodeSchema).max(200).optional(),
-    }),
-    z.object({
-      type: z.literal("codeBlock"),
-      content: z.array(nodeSchema).max(200).optional(),
-    }),
-  ]),
+  z.union(
+    [
+      z.object({
+        type: z.literal("text"),
+        text: z.string().max(20000),
+        marks: z.array(markSchema).max(4).optional(),
+      }),
+      z.object({ type: z.literal("hardBreak") }),
+      z.object({ type: z.literal("mention"), attrs: mentionAttrsSchema }),
+      z.object({
+        type: z.literal("paragraph"),
+        content: z.array(nodeSchema).max(200).optional(),
+      }),
+      z.object({
+        type: z.literal("heading"),
+        attrs: z.object({ level: z.union([z.literal(2), z.literal(3)]) }),
+        content: z.array(nodeSchema).max(200).optional(),
+      }),
+      z.object({
+        type: z.literal("bulletList"),
+        content: z.array(nodeSchema).max(200).optional(),
+      }),
+      z.object({
+        type: z.literal("orderedList"),
+        content: z.array(nodeSchema).max(200).optional(),
+      }),
+      z.object({
+        type: z.literal("listItem"),
+        content: z.array(nodeSchema).max(200).optional(),
+      }),
+      z.object({
+        type: z.literal("blockquote"),
+        content: z.array(nodeSchema).max(200).optional(),
+      }),
+      z.object({
+        type: z.literal("codeBlock"),
+        content: z.array(nodeSchema).max(200).optional(),
+      }),
+    ],
+    { error: NODE_ERROR },
+  ),
 );
 
-export const richTextSchema = z.object({
-  type: z.literal("doc"),
-  content: z.array(nodeSchema).max(500).optional(),
-});
+export const richTextSchema = z.object(
+  {
+    type: z.literal("doc"),
+    content: z.array(nodeSchema).max(500).optional(),
+  },
+  { error: NODE_ERROR },
+);
 
 export type RichTextDoc = z.infer<typeof richTextSchema>;
 

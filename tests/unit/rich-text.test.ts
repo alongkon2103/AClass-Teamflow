@@ -60,6 +60,22 @@ describe("richTextSchema", () => {
     ).toBe(false);
   });
 
+  it("keeps a mention's id and label and drops what TipTap adds", () => {
+    // TipTap also stores the trigger character; only id and label are stored.
+    const parsed = richTextSchema.parse(
+      doc(
+        para({
+          type: "mention",
+          attrs: { id: "u1", label: "ปอ", mentionSuggestionChar: "@" },
+        }),
+      ),
+    );
+    expect(parsed.content?.[0]).toEqual({
+      type: "paragraph",
+      content: [{ type: "mention", attrs: { id: "u1", label: "ปอ" } }],
+    });
+  });
+
   it("rejects a mention without a usable id", () => {
     expect(richTextSchema.safeParse(doc(para(mention("", "ปอ")))).success).toBe(
       false,
