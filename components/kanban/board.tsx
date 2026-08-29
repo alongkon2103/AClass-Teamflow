@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import {
+  useEffect,
+  useMemo,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -17,6 +24,7 @@ import { Plus } from "lucide-react";
 import { TaskStatus } from "@prisma/client";
 import { TASK_STATUS_ORDER } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
+import { useDeepLinkParam } from "@/lib/use-deep-link";
 import { moveTaskAction } from "@/server/actions/task";
 import { BoardColumn } from "./board-column";
 import { TaskCardBody } from "./task-card";
@@ -73,6 +81,19 @@ export function Board({
   const [dialog, setDialog] = useState<TaskDialogState>({ mode: "closed" });
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  // A notification links to /board?task=<id>; open that task straight away.
+  const linkedTaskId = useDeepLinkParam("task");
+  const openedLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!linkedTaskId || openedLinkRef.current === linkedTaskId) return;
+    openedLinkRef.current = linkedTaskId;
+
+    const linked = initialTasks.find((task) => task.id === linkedTaskId);
+    if (linked) setDialog({ mode: "edit", task: linked });
+    // The board only holds what this user may see, so a miss is a real answer.
+    else toast.error("ไม่พบงานนี้ หรือคุณไม่มีสิทธิ์เข้าถึง");
+  }, [linkedTaskId, initialTasks]);
 
   // Optimistic layer: the drop shows instantly and reverts if the server says no.
   const [tasks, applyOptimistic] = useOptimistic(

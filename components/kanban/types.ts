@@ -22,6 +22,7 @@ export type MemberOption = {
   name: string;
   jobTitle: string | null;
   avatarColor: string;
+  avatarUrl: string | null;
 };
 
 export type GameOption = { id: string; name: string };

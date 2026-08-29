@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import type { RichTextDoc } from "@/lib/rich-text";
 import { can } from "@/lib/permissions";
 import { formatCalendarDate, todayInBangkok } from "@/lib/date";
 import { listMeetings } from "@/server/services/meeting";
@@ -15,7 +16,20 @@ export default async function MeetingsPage() {
   // Everyone reads the minutes; only a leader records them.
   const canManage = can(actor, { type: "meeting:manage" });
 
-  const rows = await listMeetings(db);
+  const [rows, members] = await Promise.all([
+    listMeetings(db),
+    db.user.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        jobTitle: true,
+        avatarColor: true,
+        avatarUrl: true,
+      },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return (
     <>
@@ -25,6 +39,7 @@ export default async function MeetingsPage() {
       />
 
       <MeetingBoard
+        members={members}
         canManage={canManage}
         today={formatCalendarDate(todayInBangkok())}
         meetings={rows.map((row) => ({
@@ -32,8 +47,8 @@ export default async function MeetingsPage() {
           title: row.title,
           meetingAt: formatCalendarDate(row.meetingAt),
           startTime: row.startTime,
-          description: row.description,
-          summary: row.summary,
+          description: (row.description ?? null) as RichTextDoc | null,
+          summary: (row.summary ?? null) as RichTextDoc | null,
           createdBy: row.createdBy,
         }))}
       />

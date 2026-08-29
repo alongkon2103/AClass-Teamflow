@@ -1,24 +1,31 @@
 "use client";
 
 import { useState } from "react";
+import { useDeepLinkParam } from "@/lib/use-deep-link";
 import { CalendarClock, CalendarPlus, NotebookPen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatThaiDate } from "@/lib/format";
 import { MeetingHistory, type MeetingView } from "./meeting-history";
 import { MeetingDialog, type MeetingDialogState } from "./meeting-dialog";
+import { RichTextView } from "@/components/rich-text/rich-text-view";
+import type { MentionCandidate } from "@/components/rich-text/mention-list";
 
 /** Upcoming meetings on the left, the full history on the right. */
 export function MeetingBoard({
   meetings,
+  members,
   canManage,
   today,
 }: {
   meetings: MeetingView[];
+  members: MentionCandidate[];
   canManage: boolean;
   today: string;
 }) {
   const [dialog, setDialog] = useState<MeetingDialogState>({ mode: "closed" });
+  // A mention in the minutes links to /meetings?meeting=<id>.
+  const linkedMeetingId = useDeepLinkParam("meeting");
 
   // Meetings are handed over newest first; upcoming reads better the other way.
   const upcoming = meetings
@@ -85,9 +92,10 @@ export function MeetingBoard({
                     ) : null}
                   </div>
                   {meeting.description ? (
-                    <p className="text-muted-foreground mt-2 text-[13px] leading-relaxed whitespace-pre-wrap">
-                      {meeting.description}
-                    </p>
+                    <RichTextView
+                      doc={meeting.description}
+                      className="text-muted-foreground mt-2 text-[13px]"
+                    />
                   ) : null}
                 </li>
               ))}
@@ -98,12 +106,14 @@ export function MeetingBoard({
         <MeetingHistory
           meetings={meetings}
           canManage={canManage}
+          focusId={linkedMeetingId}
           onEdit={(meeting) => setDialog({ mode: "edit", meeting })}
         />
       </div>
 
       <MeetingDialog
         state={dialog}
+        members={members}
         today={today}
         onClose={() => setDialog({ mode: "closed" })}
       />

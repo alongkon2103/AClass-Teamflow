@@ -5,7 +5,10 @@ import Image from "next/image";
 import { ImagePlus, MessageSquare, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
+import { RichTextView } from "@/components/rich-text/rich-text-view";
+import type { MentionCandidate } from "@/components/rich-text/mention-list";
+import { EMPTY_DOC, isEmptyRichText, type RichTextDoc } from "@/lib/rich-text";
 import { Avatar } from "@/components/shared/avatar";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Skeleton } from "@/components/shared/skeleton";
@@ -25,14 +28,14 @@ import { ProgressReplies } from "./progress-replies";
 export type ProgressEntryView = {
   id: string;
   entryDate: string;
-  body: string;
+  body: RichTextDoc;
   imageUrls: string[];
   authorId: string;
   author: { id: string; name: string; avatarColor: string };
   canDelete: boolean;
   comments: {
     id: string;
-    body: string;
+    body: RichTextDoc;
     author: { id: string; name: string; avatarColor: string };
     canDelete: boolean;
   }[];
@@ -47,15 +50,18 @@ export function ProgressSection({
   today,
   onSaved,
   canReply,
+  members,
 }: {
   taskId: string;
   today: string;
   onSaved: () => void;
   /** Leaders may answer a member's daily update. */
   canReply: boolean;
+  /** People who can be @-mentioned in an update or a reply. */
+  members: MentionCandidate[];
 }) {
   const [entries, setEntries] = useState<ProgressEntryView[] | null>(null);
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState<RichTextDoc>(EMPTY_DOC);
   const [entryDate, setEntryDate] = useState(today);
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [pending, startTransition] = useTransition();
@@ -143,7 +149,7 @@ export function ProgressSection({
   };
 
   /** Ctrl+V straight into the box attaches every image on the clipboard. */
-  const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const onPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
     const files = Array.from(event.clipboardData.files).filter((item) =>
       item.type.startsWith("image/"),
     );
@@ -154,7 +160,7 @@ export function ProgressSection({
   };
 
   const submit = () => {
-    if (!body.trim()) {
+    if (isEmptyRichText(body)) {
       toast.error("กรุณากรอกความคืบหน้า");
       return;
     }
@@ -198,7 +204,7 @@ export function ProgressSection({
       }
 
       toast.success("ส่งความคืบหน้าแล้ว");
-      setBody("");
+      setBody(EMPTY_DOC);
       for (const item of images) URL.revokeObjectURL(item.preview);
       setImages([]);
       if (fileInput.current) fileInput.current.value = "";
@@ -258,9 +264,7 @@ export function ProgressSection({
                   </button>
                 ) : null}
               </div>
-              <p className="mt-2 text-[13px] leading-relaxed whitespace-pre-wrap">
-                {entry.body}
-              </p>
+              <RichTextView doc={entry.body} className="mt-2 text-[13px]" />
               {entry.imageUrls.length > 0 ? (
                 <ul className="mt-2 flex flex-wrap gap-2">
                   {entry.imageUrls.map((url, position) => (
@@ -292,6 +296,7 @@ export function ProgressSection({
 
               <ProgressReplies
                 comments={entry.comments}
+                members={members}
                 canReply={canReply}
                 pending={pending}
                 onReply={(body) =>
@@ -326,15 +331,17 @@ export function ProgressSection({
       )}
 
       <div className="border-line bg-input-bg mt-3 rounded-xl border p-3">
-        <Textarea
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          onPaste={onPaste}
-          rows={2}
-          placeholder="วันนี้ทำอะไรไปบ้าง (แนบได้หลายรูป หรือวางด้วย Ctrl+V)"
-          aria-label="ข้อความความคืบหน้า"
-          className="border-none bg-transparent p-0 focus-visible:ring-0"
-        />
+        <div onPaste={onPaste}>
+          <RichTextEditor
+            value={body}
+            onChange={setBody}
+            members={members}
+            ariaLabel="ข้อความความคืบหน้า"
+            placeholder="วันนี้ทำอะไรไปบ้าง (แนบได้หลายรูป หรือวางด้วย Ctrl+V)"
+            minHeight={72}
+            className="bg-surface"
+          />
+        </div>
 
         {images.length > 0 ? (
           <ul className="mt-2 flex flex-wrap gap-2">

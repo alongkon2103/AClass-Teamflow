@@ -310,6 +310,7 @@ export function TaskDialog({
               today={today}
               onSaved={onSaved}
               canReply={canAssign}
+              members={members}
             />
           ) : null}
 

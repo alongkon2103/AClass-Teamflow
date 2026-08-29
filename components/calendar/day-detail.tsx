@@ -19,6 +19,7 @@ import { Avatar } from "@/components/shared/avatar";
 import { Skeleton } from "@/components/shared/skeleton";
 import { formatThaiDate } from "@/lib/format";
 import { deliveryState, DELIVERY_META } from "@/lib/delivery";
+import { RichTextView } from "@/components/rich-text/rich-text-view";
 import {
   ImageLightbox,
   type LightboxState,
@@ -152,9 +153,10 @@ export function DayDetailDialog({
                         {meeting.title}
                       </p>
                       {meeting.description ? (
-                        <p className="text-muted-foreground mt-1 text-xs leading-relaxed whitespace-pre-wrap">
-                          {meeting.description}
-                        </p>
+                        <RichTextView
+                          doc={meeting.description}
+                          className="text-muted-foreground mt-1 text-xs"
+                        />
                       ) : null}
                     </li>
                   ))}
@@ -226,9 +228,10 @@ export function DayDetailDialog({
                           · {entry.taskTitle}
                         </span>
                       </div>
-                      <p className="mt-1.5 text-[13px] leading-relaxed whitespace-pre-wrap">
-                        {entry.body}
-                      </p>
+                      <RichTextView
+                        doc={entry.body}
+                        className="mt-1.5 text-[13px]"
+                      />
                       {entry.imageUrls.length > 0 ? (
                         <ul className="mt-2 flex flex-wrap gap-2">
                           {entry.imageUrls.map((url, position) => (

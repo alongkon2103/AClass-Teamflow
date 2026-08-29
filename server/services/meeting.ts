@@ -2,6 +2,8 @@ import type { PrismaClient } from "@prisma/client";
 import { type Actor, assertCan } from "@/lib/permissions";
 import { parseCalendarDate } from "@/lib/date";
 import { NotFoundError } from "./task";
+import { notifyMentions } from "./mention";
+import type { RichTextDoc } from "@/lib/rich-text";
 
 /** Meeting minutes, newest first — the order the history panel reads in. */
 export async function listMeetings(db: PrismaClient) {
@@ -51,8 +53,8 @@ export type MeetingInput = {
   title: string;
   meetingAt: string;
   startTime: string | null;
-  description: string | null;
-  summary: string | null;
+  description: RichTextDoc | null;
+  summary: RichTextDoc | null;
 };
 
 export async function createMeeting(
@@ -62,16 +64,32 @@ export async function createMeeting(
 ) {
   assertCan(actor, { type: "meeting:manage" });
 
-  return db.meeting.create({
-    data: {
-      title: input.title,
-      meetingAt: parseCalendarDate(input.meetingAt),
-      startTime: input.startTime,
-      description: input.description,
-      summary: input.summary,
-      createdById: actor.id,
-    },
-    select: { id: true },
+  return db.$transaction(async (tx) => {
+    const meeting = await tx.meeting.create({
+      data: {
+        title: input.title,
+        meetingAt: parseCalendarDate(input.meetingAt),
+        startTime: input.startTime,
+        description: input.description ?? undefined,
+        summary: input.summary ?? undefined,
+        createdById: actor.id,
+      },
+      select: { id: true, title: true },
+    });
+
+    const notified = await notifyMentions(tx, actor, input.description, {
+      meetingId: meeting.id,
+      meetingTitle: meeting.title,
+    });
+    await notifyMentions(
+      tx,
+      actor,
+      input.summary,
+      { meetingId: meeting.id, meetingTitle: meeting.title },
+      notified,
+    );
+
+    return { id: meeting.id };
   });
 }
 
@@ -89,16 +107,32 @@ export async function updateMeeting(
   });
   if (!existing) throw new NotFoundError("ไม่พบรายการประชุมที่ต้องการ");
 
-  return db.meeting.update({
-    where: { id },
-    data: {
-      title: input.title,
-      meetingAt: parseCalendarDate(input.meetingAt),
-      startTime: input.startTime,
-      description: input.description,
-      summary: input.summary,
-    },
-    select: { id: true },
+  return db.$transaction(async (tx) => {
+    const meeting = await tx.meeting.update({
+      where: { id },
+      data: {
+        title: input.title,
+        meetingAt: parseCalendarDate(input.meetingAt),
+        startTime: input.startTime,
+        description: input.description ?? undefined,
+        summary: input.summary ?? undefined,
+      },
+      select: { id: true, title: true },
+    });
+
+    const notified = await notifyMentions(tx, actor, input.description, {
+      meetingId: meeting.id,
+      meetingTitle: meeting.title,
+    });
+    await notifyMentions(
+      tx,
+      actor,
+      input.summary,
+      { meetingId: meeting.id, meetingTitle: meeting.title },
+      notified,
+    );
+
+    return { id: meeting.id };
   });
 }
 

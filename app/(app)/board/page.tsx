@@ -55,6 +55,7 @@ export default async function BoardPage({
         name: user.name,
         jobTitle: user.jobTitle,
         avatarColor: user.avatarColor,
+        avatarUrl: user.avatarUrl,
       })
     : canAssign
       ? null
@@ -63,6 +64,7 @@ export default async function BoardPage({
           name: user.name,
           jobTitle: user.jobTitle,
           avatarColor: user.avatarColor,
+          avatarUrl: user.avatarUrl,
         };
 
   const today = formatCalendarDate(todayInBangkok());

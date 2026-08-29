@@ -3,13 +3,11 @@ import { NotificationType, Role } from "@prisma/client";
 import { type Actor, assertCan } from "@/lib/permissions";
 import { parseCalendarDate } from "@/lib/date";
 import { NotFoundError } from "./task";
+import { excerptOf, notifyMentions } from "./mention";
+import type { RichTextDoc } from "@/lib/rich-text";
 import type { CreateProgressInput } from "@/lib/validators/progress";
 
-/** Short preview of a progress note, for notification payloads. */
-export function excerpt(body: string, limit = 120): string {
-  const text = body.replace(/\s+/g, " ").trim();
-  return text.length <= limit ? text : `${text.slice(0, limit - 1)}…`;
-}
+export { excerptOf as excerpt } from "./mention";
 
 export async function listProgressForTask(db: PrismaClient, taskId: string) {
   return db.progressEntry.findMany({
@@ -54,7 +52,7 @@ export async function replyToProgress(
   db: PrismaClient,
   actor: Actor,
   entryId: string,
-  body: string,
+  body: RichTextDoc,
 ) {
   const entry = await db.progressEntry.findUnique({
     where: { id: entryId },
@@ -84,11 +82,19 @@ export async function replyToProgress(
           payload: {
             taskId: entry.task.id,
             taskTitle: entry.task.title,
-            excerpt: excerpt(body),
+            excerpt: excerptOf(body),
           },
         },
       });
     }
+
+    await notifyMentions(
+      tx,
+      actor,
+      body,
+      { taskId: entry.task.id, taskTitle: entry.task.title },
+      [entry.authorId],
+    );
 
     return comment;
   });
@@ -160,6 +166,7 @@ export async function createProgress(
       select: { id: true, entryDate: true },
     });
 
+    const notified = leaders.map((leader) => leader.id);
     if (leaders.length > 0) {
       await tx.notification.createMany({
         data: leaders.map((leader) => ({
@@ -169,11 +176,19 @@ export async function createProgress(
           payload: {
             taskId: task.id,
             taskTitle: task.title,
-            excerpt: excerpt(input.body),
+            excerpt: excerptOf(input.body as RichTextDoc),
           },
         })),
       });
     }
+
+    await notifyMentions(
+      tx,
+      actor,
+      input.body as RichTextDoc,
+      { taskId: task.id, taskTitle: task.title },
+      notified,
+    );
 
     return entry;
   });

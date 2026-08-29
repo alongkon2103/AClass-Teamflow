@@ -8,6 +8,8 @@ export type NotificationPayload = {
   excerpt?: string;
   leaveId?: string;
   feedbackId?: string;
+  meetingId?: string;
+  meetingTitle?: string;
   ticketNumber?: string;
   userName?: string;
   status?: string;
@@ -36,13 +38,16 @@ export function notificationHref(
     case "LEAVE_DECIDED":
       return "/calendar";
     case "PROGRESS_REPLIED":
+      return payload.taskId ? `/board?task=${payload.taskId}` : "/board";
     case "FEEDBACK_REPLIED":
-      if (type === "PROGRESS_REPLIED") {
-        return payload.taskId ? `/board?task=${payload.taskId}` : "/board";
-      }
       return payload.feedbackId
         ? `/feedback?ticket=${payload.feedbackId}`
         : "/feedback";
+    // A mention can come from a task update or from a meeting, so the payload
+    // says which; whichever id is present decides where the click lands.
+    case "MENTIONED":
+      if (payload.meetingId) return `/meetings?meeting=${payload.meetingId}`;
+      return payload.taskId ? `/board?task=${payload.taskId}` : "/board";
     default:
       return "/board";
   }
@@ -70,6 +75,11 @@ export function notificationMessage(
       return `${who} ตอบกลับความคืบหน้าใน "${payload.taskTitle ?? "งาน"}"`;
     case "FEEDBACK_REPLIED":
       return `${who} ตอบกลับฟีดแบค ${payload.ticketNumber ?? ""}`.trim();
+    case "MENTIONED":
+      if (payload.meetingTitle) {
+        return `${who} กล่าวถึงคุณในบันทึกประชุม "${payload.meetingTitle}"`;
+      }
+      return `${who} กล่าวถึงคุณใน "${payload.taskTitle ?? "งาน"}"`;
     default:
       return "มีการแจ้งเตือนใหม่";
   }

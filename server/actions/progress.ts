@@ -18,6 +18,7 @@ import {
 } from "@/server/services/progress";
 import { NotFoundError } from "@/server/services/task";
 import type { ActionResult } from "./task";
+import { EMPTY_DOC, type RichTextDoc } from "@/lib/rich-text";
 
 async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   try {
@@ -117,14 +118,14 @@ export async function loadProgressAction(taskId: string) {
   return entries.map((entry) => ({
     id: entry.id,
     entryDate: formatCalendarDate(entry.entryDate),
-    body: entry.body,
+    body: (entry.body ?? EMPTY_DOC) as RichTextDoc,
     imageUrls: entry.imageUrls,
     authorId: entry.authorId,
     author: entry.author,
     canDelete: actor.role === "LEADER" || entry.authorId === actor.id,
     comments: entry.comments.map((comment) => ({
       id: comment.id,
-      body: comment.body,
+      body: (comment.body ?? EMPTY_DOC) as RichTextDoc,
       author: comment.author,
       canDelete: actor.role === "LEADER" || comment.authorId === actor.id,
     })),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, NotebookPen, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,8 @@ import { Avatar } from "@/components/shared/avatar";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { formatThaiDate } from "@/lib/format";
+import { RichTextView } from "@/components/rich-text/rich-text-view";
+import type { RichTextDoc } from "@/lib/rich-text";
 import { deleteMeetingAction } from "@/server/actions/meeting";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +19,8 @@ export type MeetingView = {
   title: string;
   meetingAt: string;
   startTime: string | null;
-  description: string | null;
-  summary: string | null;
+  description: RichTextDoc | null;
+  summary: RichTextDoc | null;
   createdBy: {
     id: string;
     name: string;
@@ -35,15 +37,28 @@ export function MeetingHistory({
   meetings,
   canManage,
   onEdit,
+  focusId = null,
 }: {
   meetings: MeetingView[];
   canManage: boolean;
   onEdit: (meeting: MeetingView) => void;
+  /** Meeting to reveal on arrival, when a notification linked straight to it. */
+  focusId?: string | null;
 }) {
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(meetings[0]?.id ?? null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const rowsRef = useRef(new Map<string, HTMLLIElement>());
+
+  // The list scrolls inside its own box, so the row has to be brought into view.
+  useEffect(() => {
+    if (!focusId || !meetings.some((meeting) => meeting.id === focusId)) return;
+    setOpenId(focusId);
+    rowsRef.current
+      .get(focusId)
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [focusId, meetings]);
 
   const remove = (id: string) =>
     startTransition(async () => {
@@ -81,7 +96,17 @@ export function MeetingHistory({
         {meetings.map((meeting) => {
           const open = openId === meeting.id;
           return (
-            <li key={meeting.id} className="border-line border-b last:border-0">
+            <li
+              key={meeting.id}
+              ref={(node) => {
+                if (node) rowsRef.current.set(meeting.id, node);
+                else rowsRef.current.delete(meeting.id);
+              }}
+              className={cn(
+                "border-line border-b last:border-0",
+                focusId === meeting.id && "bg-primary-soft/40",
+              )}
+            >
               <button
                 type="button"
                 onClick={() => setOpenId(open ? null : meeting.id)}
@@ -127,9 +152,10 @@ export function MeetingHistory({
                         <p className="text-muted-foreground mb-1 text-[11px] font-bold">
                           รายละเอียด / วาระ
                         </p>
-                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
-                          {meeting.description}
-                        </p>
+                        <RichTextView
+                          doc={meeting.description}
+                          className="text-[13px]"
+                        />
                       </div>
                     ) : null}
 
@@ -137,9 +163,10 @@ export function MeetingHistory({
                       สรุปผลการประชุม
                     </p>
                     {meeting.summary ? (
-                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
-                        {meeting.summary}
-                      </p>
+                      <RichTextView
+                        doc={meeting.summary}
+                        className="text-[13px]"
+                      />
                     ) : (
                       <p className="text-muted-foreground text-[13px]">
                         ยังไม่ได้บันทึกสรุปผล

@@ -220,3 +220,60 @@
     }
   }
 }
+
+/* TipTap editing surface. The stored document decides what can appear here, so
+   these rules only cover the node types the schema already allows. */
+@layer components {
+  .tf-prose {
+    font-size: 0.875rem;
+    line-height: 1.65;
+  }
+  .tf-prose > * + * {
+    margin-top: 0.5rem;
+  }
+  .tf-prose ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+  }
+  .tf-prose ol {
+    list-style: decimal;
+    padding-left: 1.25rem;
+  }
+  .tf-prose h2 {
+    font-size: 0.9375rem;
+    font-weight: 700;
+  }
+  .tf-prose h3 {
+    font-size: 0.84375rem;
+    font-weight: 700;
+  }
+  .tf-prose blockquote {
+    border-left: 2px solid var(--line);
+    padding-left: 0.75rem;
+    color: var(--muted);
+  }
+  .tf-prose code {
+    background: var(--hover);
+    border-radius: 0.25rem;
+    padding: 0.1rem 0.25rem;
+    font-size: 0.9em;
+  }
+  .tf-prose pre {
+    background: var(--hover);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    overflow-x: auto;
+  }
+  .tf-prose pre code {
+    background: none;
+    padding: 0;
+  }
+  /* A mention reads as one unit, so it gets the primary tint wherever it lands. */
+  .tf-mention {
+    color: var(--primary-ink);
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    border-radius: 0.25rem;
+    padding: 0 0.25rem;
+    font-weight: 600;
+  }
+}

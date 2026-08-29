@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isEmptyRichText, richTextSchema } from "@/lib/rich-text";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** 24-hour "HH:mm", which is what <input type="time"> submits. */
@@ -24,15 +25,14 @@ export const meetingFormSchema = z.object({
     (value) => value === null || CLOCK_TIME.test(value),
     "รูปแบบเวลาไม่ถูกต้อง",
   ),
-  description: blankable.refine(
-    (value) => value === null || value.length <= 5000,
-    "รายละเอียดต้องไม่เกิน 5000 ตัวอักษร",
-  ),
+  // An empty document is stored as null, so "nothing written" stays one thing.
+  description: richTextSchema
+    .nullish()
+    .transform((doc) => (doc && !isEmptyRichText(doc) ? doc : null)),
   // Written after the meeting, so a booking can be saved without it.
-  summary: blankable.refine(
-    (value) => value === null || value.length <= 20000,
-    "สรุปผลต้องไม่เกิน 20000 ตัวอักษร",
-  ),
+  summary: richTextSchema
+    .nullish()
+    .transform((doc) => (doc && !isEmptyRichText(doc) ? doc : null)),
 });
 
 export type MeetingFormValues = z.input<typeof meetingFormSchema>;

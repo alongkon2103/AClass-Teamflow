@@ -61,6 +61,7 @@ export default async function CalendarPage({
     name: user.name,
     jobTitle: user.jobTitle,
     avatarColor: user.avatarColor,
+    avatarUrl: user.avatarUrl,
   };
 
   return (

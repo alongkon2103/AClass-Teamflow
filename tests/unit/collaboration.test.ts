@@ -3,6 +3,7 @@ import { FeedbackStatus } from "@prisma/client";
 import { can, taskVisibilityFilter } from "@/lib/permissions";
 import { taskFormSchema } from "@/lib/validators/task";
 import { replyProgressSchema } from "@/lib/validators/progress";
+import { plainToRichText } from "@/lib/rich-text";
 import { FEEDBACK_STATUS_META } from "@/lib/constants";
 import {
   notificationHref,
@@ -119,13 +120,35 @@ describe("progress replies", () => {
     ).toBe(true);
   });
 
-  it("requires a non-empty body and trims it", () => {
+  it("requires a reply that actually says something", () => {
     expect(
-      replyProgressSchema.parse({ entryId: "e1", body: "  ดีมาก  " }).body,
-    ).toBe("ดีมาก");
+      replyProgressSchema.safeParse({
+        entryId: "e1",
+        body: plainToRichText("ดีมาก"),
+      }).success,
+    ).toBe(true);
+    // An empty paragraph is what TipTap leaves behind, and it is not a reply.
     expect(
-      replyProgressSchema.safeParse({ entryId: "e1", body: "   " }).success,
+      replyProgressSchema.safeParse({
+        entryId: "e1",
+        body: { type: "doc", content: [{ type: "paragraph" }] },
+      }).success,
     ).toBe(false);
+    // A mention on its own is a reply: it pulls somebody in.
+    expect(
+      replyProgressSchema.safeParse({
+        entryId: "e1",
+        body: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "mention", attrs: { id: "u1", label: "ปอ" } }],
+            },
+          ],
+        },
+      }).success,
+    ).toBe(true);
   });
 
   it("points the notification at the task it belongs to", () => {
@@ -139,6 +162,37 @@ describe("progress replies", () => {
         "หัวหน้า",
       ),
     ).toContain("ตอบกลับความคืบหน้า");
+  });
+});
+
+describe("mention notifications", () => {
+  it("takes the reader to the task the mention was written in", () => {
+    expect(notificationHref("MENTIONED", { taskId: "t1" })).toBe(
+      "/board?task=t1",
+    );
+  });
+
+  it("takes the reader to the meeting when the mention was in the minutes", () => {
+    expect(
+      notificationHref("MENTIONED", { meetingId: "m1", meetingTitle: "สรุป" }),
+    ).toBe("/meetings?meeting=m1");
+  });
+
+  it("falls back to the board when the payload names nothing", () => {
+    expect(notificationHref("MENTIONED", {})).toBe("/board");
+  });
+
+  it("says who mentioned you and where", () => {
+    expect(
+      notificationMessage("MENTIONED", { taskTitle: "งาน A" }, "หัวหน้า"),
+    ).toBe('หัวหน้า กล่าวถึงคุณใน "งาน A"');
+    expect(
+      notificationMessage(
+        "MENTIONED",
+        { meetingId: "m1", meetingTitle: "ประชุมทีม" },
+        "หัวหน้า",
+      ),
+    ).toBe('หัวหน้า กล่าวถึงคุณในบันทึกประชุม "ประชุมทีม"');
   });
 });
 

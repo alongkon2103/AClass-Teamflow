@@ -9,6 +9,7 @@ import {
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { todayInBangkok, addCalendarDays } from "../lib/date";
+import { plainToRichText } from "../lib/rich-text";
 
 const prisma = new PrismaClient();
 
@@ -190,31 +191,37 @@ async function main() {
         taskId: t1.id,
         authorId: napa.id,
         entryDate: day(-2),
-        body: "ร่างเลย์เอาต์ด่าน 4 เสร็จ วางตำแหน่งศัตรูคร่าว ๆ แล้ว",
+        body: plainToRichText(
+          "ร่างเลย์เอาต์ด่าน 4 เสร็จ วางตำแหน่งศัตรูคร่าว ๆ แล้ว",
+        ),
       },
       {
         taskId: t1.id,
         authorId: napa.id,
         entryDate: day(0),
-        body: "เริ่มวางกับดักในด่าน 5 และปรับจังหวะการเดินของศัตรู",
+        body: plainToRichText(
+          "เริ่มวางกับดักในด่าน 5 และปรับจังหวะการเดินของศัตรู",
+        ),
       },
       {
         taskId: t4.id,
         authorId: napa.id,
         entryDate: day(-1),
-        body: "ปรับค่าดาเมจอาวุธหลักลง 15% รอทีมรีวิว",
+        body: plainToRichText("ปรับค่าดาเมจอาวุธหลักลง 15% รอทีมรีวิว"),
       },
       {
         taskId: t6.id,
         authorId: ploy.id,
         entryDate: day(0),
-        body: "เขียนเทสต์ครอบคลุม 8 เคสหลักของหน้าล็อกอินแล้ว",
+        body: plainToRichText("เขียนเทสต์ครอบคลุม 8 เคสหลักของหน้าล็อกอินแล้ว"),
       },
       {
         taskId: t5.id,
         authorId: thana.id,
         entryDate: day(-3),
-        body: "ใส่เสียง BGM ครบทุกฉากหลัก เหลือปรับระดับเสียง SFX",
+        body: plainToRichText(
+          "ใส่เสียง BGM ครบทุกฉากหลัก เหลือปรับระดับเสียง SFX",
+        ),
       },
     ],
   });

@@ -3,6 +3,7 @@ import { type Actor, taskVisibilityFilter } from "@/lib/permissions";
 import { parseCalendarDate, formatCalendarDate } from "@/lib/date";
 import { listLeavesInRange } from "./leave";
 import { listMeetingsInRange } from "./meeting";
+import type { RichTextDoc } from "@/lib/rich-text";
 
 /** First and last day of a month, as calendar strings. */
 export function monthBounds(year: number, month: number) {
@@ -180,7 +181,7 @@ export async function loadDayDetail(
     })),
     progress: progress.map((entry) => ({
       id: entry.id,
-      body: entry.body,
+      body: entry.body as RichTextDoc,
       imageUrls: entry.imageUrls,
       author: entry.author,
       taskTitle: entry.task.title,
@@ -199,8 +200,8 @@ export async function loadDayDetail(
       id: meeting.id,
       title: meeting.title,
       startTime: meeting.startTime,
-      description: meeting.description,
-      summary: meeting.summary,
+      description: (meeting.description ?? null) as RichTextDoc | null,
+      summary: (meeting.summary ?? null) as RichTextDoc | null,
     })),
   };
 }

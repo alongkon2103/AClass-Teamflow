@@ -7,6 +7,7 @@ import {
   type DeliveryState,
 } from "@/lib/delivery";
 import { meetingFormSchema } from "@/lib/validators/meeting";
+import { plainToRichText, richTextToPlain } from "@/lib/rich-text";
 import { can } from "@/lib/permissions";
 
 const TODAY = "2026-08-28";
@@ -153,12 +154,21 @@ describe("meetingFormSchema", () => {
     const parsed = meetingFormSchema.parse({
       ...base,
       startTime: "14:30",
-      description: " วาระที่ 1 ",
-      summary: " สรุปผล ",
+      description: plainToRichText("วาระที่ 1"),
+      summary: plainToRichText("สรุปผล"),
     });
     expect(parsed.startTime).toBe("14:30");
-    expect(parsed.description).toBe("วาระที่ 1");
-    expect(parsed.summary).toBe("สรุปผล");
+    expect(richTextToPlain(parsed.description)).toBe("วาระที่ 1");
+    expect(richTextToPlain(parsed.summary)).toBe("สรุปผล");
+  });
+
+  it("stores a document the editor left blank as no write-up at all", () => {
+    // TipTap keeps an empty paragraph around after the field is cleared.
+    const parsed = meetingFormSchema.parse({
+      ...base,
+      summary: { type: "doc", content: [{ type: "paragraph" }] },
+    });
+    expect(parsed.summary).toBeNull();
   });
 
   it("trims the title and still requires one", () => {
@@ -197,8 +207,10 @@ describe("meetingFormSchema", () => {
 
   it("allows a long set of minutes", () => {
     expect(
-      meetingFormSchema.safeParse({ ...base, summary: "ก".repeat(5000) })
-        .success,
+      meetingFormSchema.safeParse({
+        ...base,
+        summary: plainToRichText("ก".repeat(5000)),
+      }).success,
     ).toBe(true);
   });
 });

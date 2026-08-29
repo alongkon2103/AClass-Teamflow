@@ -4,11 +4,14 @@ import { useState } from "react";
 import { CornerUpLeft, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/shared/avatar";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
+import { RichTextView } from "@/components/rich-text/rich-text-view";
+import type { MentionCandidate } from "@/components/rich-text/mention-list";
+import { EMPTY_DOC, isEmptyRichText, type RichTextDoc } from "@/lib/rich-text";
 
 type Comment = {
   id: string;
-  body: string;
+  body: RichTextDoc;
   author: { id: string; name: string; avatarColor: string };
   canDelete: boolean;
 };
@@ -20,24 +23,26 @@ type Comment = {
  */
 export function ProgressReplies({
   comments,
+  members,
   canReply,
   pending,
   onReply,
   onDelete,
 }: {
   comments: Comment[];
+  members: MentionCandidate[];
   canReply: boolean;
   pending: boolean;
-  onReply: (body: string) => void;
+  onReply: (body: RichTextDoc) => void;
   onDelete: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState<RichTextDoc>(EMPTY_DOC);
 
   const submit = () => {
-    if (!body.trim()) return;
-    onReply(body.trim());
-    setBody("");
+    if (isEmptyRichText(body)) return;
+    onReply(body);
+    setBody(EMPTY_DOC);
     setOpen(false);
   };
 
@@ -66,23 +71,21 @@ export function ProgressReplies({
               </button>
             ) : null}
           </div>
-          <p className="mt-1 text-xs leading-relaxed whitespace-pre-wrap">
-            {comment.body}
-          </p>
+          <RichTextView doc={comment.body} className="mt-1 text-xs" />
         </div>
       ))}
 
       {canReply ? (
         open ? (
           <div className="mt-2">
-            <Textarea
+            <RichTextEditor
               value={body}
-              onChange={(event) => setBody(event.target.value)}
-              rows={2}
-              autoFocus
+              onChange={setBody}
+              members={members}
+              ariaLabel="ข้อความตอบกลับ"
               placeholder="ตอบกลับความคืบหน้านี้"
-              aria-label="ข้อความตอบกลับ"
-              className="bg-surface rounded-lg text-xs"
+              minHeight={56}
+              className="bg-surface"
             />
             <div className="mt-1.5 flex justify-end gap-2">
               <Button
@@ -91,7 +94,7 @@ export function ProgressReplies({
                 size="xs"
                 onClick={() => {
                   setOpen(false);
-                  setBody("");
+                  setBody(EMPTY_DOC);
                 }}
               >
                 ยกเลิก

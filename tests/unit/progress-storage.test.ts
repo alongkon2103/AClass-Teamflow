@@ -4,6 +4,7 @@ import {
   createProgressSchema,
   MAX_PROGRESS_IMAGES,
 } from "@/lib/validators/progress";
+import { plainToRichText } from "@/lib/rich-text";
 import { isAllowedImageType, MAX_IMAGE_BYTES } from "@/lib/storage/limits";
 import { buildObjectKey } from "@/lib/storage";
 import { resolveUploadPath, UPLOAD_ROOT } from "@/lib/storage/local";
@@ -15,22 +16,26 @@ import { relativeThaiTime } from "@/lib/relative-time";
 
 describe("excerpt", () => {
   it("leaves short text untouched", () => {
-    expect(excerpt("สั้น")).toBe("สั้น");
+    expect(excerpt(plainToRichText("สั้น"))).toBe("สั้น");
   });
 
   it("collapses whitespace", () => {
-    expect(excerpt("a\n\n  b")).toBe("a b");
+    expect(excerpt(plainToRichText("a\n\n  b"))).toBe("a b");
   });
 
   it("truncates with an ellipsis at the limit", () => {
-    const result = excerpt("ก".repeat(500));
+    const result = excerpt(plainToRichText("ก".repeat(500)));
     expect(result).toHaveLength(120);
     expect(result.endsWith("…")).toBe(true);
   });
 });
 
 describe("createProgressSchema", () => {
-  const base = { taskId: "t1", entryDate: "2026-08-26", body: "ทำงานเสร็จ" };
+  const base = {
+    taskId: "t1",
+    entryDate: "2026-08-26",
+    body: plainToRichText("ทำงานเสร็จ"),
+  };
 
   it("accepts an entry with no images at all", () => {
     expect(createProgressSchema.parse(base).imageUrls).toEqual([]);
@@ -68,9 +73,16 @@ describe("createProgressSchema", () => {
     ).toBe(true);
   });
 
-  it("rejects an empty body", () => {
+  it("rejects a body with nothing in it", () => {
     expect(
-      createProgressSchema.safeParse({ ...base, body: "   " }).success,
+      createProgressSchema.safeParse({ ...base, body: plainToRichText("   ") })
+        .success,
+    ).toBe(false);
+    expect(
+      createProgressSchema.safeParse({
+        ...base,
+        body: { type: "doc", content: [] },
+      }).success,
     ).toBe(false);
   });
 

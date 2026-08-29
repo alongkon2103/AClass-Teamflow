@@ -2,7 +2,7 @@
 
 import { useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { CalendarPlus } from "lucide-react";
@@ -17,7 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/rich-text/rich-text-editor";
+import type { MentionCandidate } from "@/components/rich-text/mention-list";
+import { EMPTY_DOC, type RichTextDoc } from "@/lib/rich-text";
 import {
   meetingFormSchema,
   type MeetingFormInput,
@@ -42,10 +44,13 @@ export function MeetingDialog({
   state,
   onClose,
   today,
+  members,
 }: {
   state: MeetingDialogState;
   onClose: () => void;
   today: string;
+  /** People who can be @-mentioned in the agenda or the write-up. */
+  members: MentionCandidate[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -58,8 +63,8 @@ export function MeetingDialog({
       title: "",
       meetingAt: today,
       startTime: "",
-      description: "",
-      summary: "",
+      description: EMPTY_DOC,
+      summary: EMPTY_DOC,
     },
   });
 
@@ -70,16 +75,16 @@ export function MeetingDialog({
         title: m.title,
         meetingAt: m.meetingAt,
         startTime: m.startTime ?? "",
-        description: m.description ?? "",
-        summary: m.summary ?? "",
+        description: m.description ?? EMPTY_DOC,
+        summary: m.summary ?? EMPTY_DOC,
       });
     } else if (state.mode === "create") {
       form.reset({
         title: "",
         meetingAt: today,
         startTime: "",
-        description: "",
-        summary: "",
+        description: EMPTY_DOC,
+        summary: EMPTY_DOC,
       });
     }
     // form is stable; refilling when the target changes is the intent.
@@ -172,12 +177,19 @@ export function MeetingDialog({
             <Label htmlFor="description" className={labelClass}>
               รายละเอียด / วาระการประชุม
             </Label>
-            <Textarea
-              id="description"
-              rows={4}
-              className="bg-input-bg rounded-xl"
-              placeholder="หัวข้อที่จะคุย สถานที่ หรือลิงก์ห้องประชุม"
-              {...form.register("description")}
+            <Controller
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <RichTextEditor
+                  value={(field.value as RichTextDoc) ?? EMPTY_DOC}
+                  onChange={field.onChange}
+                  members={members}
+                  ariaLabel="รายละเอียดการประชุม"
+                  placeholder="หัวข้อที่จะคุย สถานที่ หรือลิงก์ห้องประชุม"
+                  minHeight={96}
+                />
+              )}
             />
             {errors.description ? (
               <p className="text-danger-ink text-xs">
@@ -191,12 +203,19 @@ export function MeetingDialog({
               สรุปผลการประชุม
               <span className="ml-1 font-normal">(กรอกหลังประชุมเสร็จ)</span>
             </Label>
-            <Textarea
-              id="summary"
-              rows={6}
-              className="bg-input-bg rounded-xl"
-              placeholder="ข้อสรุปและสิ่งที่ต้องทำต่อ"
-              {...form.register("summary")}
+            <Controller
+              control={form.control}
+              name="summary"
+              render={({ field }) => (
+                <RichTextEditor
+                  value={(field.value as RichTextDoc) ?? EMPTY_DOC}
+                  onChange={field.onChange}
+                  members={members}
+                  ariaLabel="สรุปผลการประชุม"
+                  placeholder="ข้อสรุปและสิ่งที่ต้องทำต่อ"
+                  minHeight={160}
+                />
+              )}
             />
             {errors.summary ? (
               <p className="text-danger-ink text-xs">

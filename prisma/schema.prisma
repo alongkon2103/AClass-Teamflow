@@ -52,6 +52,7 @@ enum NotificationType {
   LEAVE_DECIDED
   FEEDBACK_REPLIED
   PROGRESS_REPLIED
+  MENTIONED
 }
 
 model User {
@@ -130,7 +131,9 @@ model ProgressEntry {
   taskId    String
   authorId  String
   entryDate DateTime @db.Date // date the progress is for (shown on the calendar)
-  body      String
+  /// TipTap document. Stored as JSON, never HTML, so rendering needs no
+  /// sanitiser and no dangerouslySetInnerHTML.
+  body      Json
   // Several photos per update; order is the order they were attached.
   imageUrls String[] @default([])
   createdAt DateTime @default(now())
@@ -148,7 +151,8 @@ model ProgressComment {
   id        String   @id @default(cuid())
   entryId   String
   authorId  String
-  body      String
+  /// TipTap document, same shape as ProgressEntry.body.
+  body      Json
   createdAt DateTime @default(now())
 
   entry  ProgressEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
@@ -217,10 +221,10 @@ model Meeting {
   /// Start time as "HH:mm". Stored apart from the date so the calendar day can
   /// never shift with a timezone, the way a full timestamp would.
   startTime   String?
-  /// Agenda or context, written when the meeting is booked.
-  description String?
-  /// What was decided. Empty until the meeting has happened.
-  summary     String?
+  /// Agenda or context, written when the meeting is booked. TipTap document.
+  description Json?
+  /// What was decided, as a TipTap document. Empty until the meeting happened.
+  summary     Json?
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
