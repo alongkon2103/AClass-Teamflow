@@ -76,6 +76,43 @@ pnpm user:create <email> <password> <ชื่อ> LEADER "ตำแหน่ง
 | `pnpm db:migrate`              | `prisma migrate deploy`            |
 | `pnpm db:seed`                 | ใส่ข้อมูลตัวอย่าง                  |
 | `pnpm user:create`             | สร้าง/รีเซ็ตผู้ใช้จาก command line |
+| `pnpm cli`                     | TeamFlow CLI (ดูหัวข้อถัดไป)       |
+
+## CLI
+
+`teamflow` ใช้งานระบบเดียวกับเว็บจาก terminal โดยเรียก service ใน `server/services/`
+ตัวเดียวกัน สิทธิ์ การตรวจข้อมูล และการแจ้งเตือนจึงทำงานเหมือนกันทุกอย่าง — ไม่มีกฎชุดที่สอง
+ให้ต้องตามให้ตรงกัน
+
+ต่อกับฐานข้อมูลโดยตรงผ่าน `DATABASE_URL` ใน `.env` ดังนั้นบนเครื่อง server ใช้ได้ทันที
+ส่วนบนเครื่องตัวเอง**ต้องเปิด tunnel ไว้ก่อน**
+
+```bash
+# ใช้ในโปรเจกต์
+pnpm cli help
+
+# หรือวางไว้บน PATH เพื่อเรียกจากที่ไหนก็ได้
+ln -s "$PWD/bin/teamflow" /usr/local/bin/teamflow
+teamflow help
+```
+
+เข้าสู่ระบบครั้งเดียว แล้ว session จะเก็บไว้ที่ `~/.teamflow/session.json` (สิทธิ์ 600)
+
+```bash
+teamflow login                    # ถามอีเมล/รหัสผ่านแบบไม่โชว์รหัส
+teamflow today                    # เลยกำหนด / ครบกำหนดวันนี้ / กำลังทำ / ประชุม
+teamflow ls --status doing
+teamflow show payment             # อ้างงานด้วย id, ตัวขึ้นต้นของ id หรือชื่องานบางส่วน
+teamflow log payment "แก้เสร็จแล้ว ฝาก @Mashe ตรวจต่อ"
+teamflow move payment review
+teamflow inbox
+```
+
+`@ชื่อ` ในคำสั่ง `log` กลายเป็น mention จริงและส่งแจ้งเตือนเหมือนพิมพ์ในเว็บ
+ชื่อที่มีเว้นวรรคใส่วงเล็บเหลี่ยม: `@[สมชาย ใจดี]`
+
+การเข้าสู่ระบบของ CLI ไม่ใช่ขอบเขตความปลอดภัย — ใครที่ถึง `DATABASE_URL` ได้ก็ทำได้ทุกอย่างอยู่แล้ว
+มันมีไว้บอกว่ากำลังทำงานในนามใคร เพื่อให้สิทธิ์ ผู้เขียน และการแจ้งเตือนถูกต้อง
 
 ## การทดสอบ
 

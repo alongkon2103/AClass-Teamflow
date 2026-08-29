@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+# TeamFlow CLI launcher. Symlink it onto PATH to use it from anywhere:
+#   ln -s "$PWD/bin/teamflow" /usr/local/bin/teamflow
+set -e
+
+# Follow the symlink chain so the repo is found from the real file, not the link.
+self=$0
+while [ -L "$self" ]; do
+  target=$(readlink "$self")
+  case $target in
+    /*) self=$target ;;
+    *) self=$(dirname "$self")/$target ;;
+  esac
+done
+root=$(cd "$(dirname "$self")/.." && pwd)
+
+# tsx reads tsconfig.json from the working directory, so the "@/..." imports
+# only resolve when the process starts inside the repo.
+cd "$root"
+exec "$root/node_modules/.bin/tsx" "$root/cli/index.ts" "$@"
