@@ -3,6 +3,7 @@ import { TaskStatus as Status } from "@prisma/client";
 import type { Actor } from "@/lib/permissions";
 import { TASK_STATUS_ORDER } from "@/lib/constants";
 import { formatCalendarDate, todayInBangkok } from "@/lib/date";
+import { formatThaiDate } from "@/lib/format";
 import { deliveryState, DELIVERY_META } from "@/lib/delivery";
 import {
   listBoardTasks,
@@ -25,16 +26,18 @@ import {
   cyan,
   dim,
   docToTerminal,
+  dueLabel,
   fail,
-  green,
   heading,
   info,
-  paintPriority,
+  keyValues,
   paintStatus,
-  red,
+  priorityBadge,
+  progressBar,
+  rule,
+  statusBadge,
   success,
   table,
-  yellow,
 } from "../ui";
 
 const today = () => formatCalendarDate(todayInBangkok());
@@ -66,50 +69,61 @@ export async function listCommand(
   }
 
   const now = today();
-  const rows = tasks
+  const ordered = tasks
     .slice()
     .sort(
       (a, b) =>
         TASK_STATUS_ORDER.indexOf(a.status) -
           TASK_STATUS_ORDER.indexOf(b.status) || a.sortOrder - b.sortOrder,
-    )
-    .map((task) => {
-      const due = task.dueDate ? formatCalendarDate(task.dueDate) : "";
-      const state = deliveryState({
-        status: task.status,
-        dueDate: due || null,
-        completedAt: task.completedAt
-          ? formatCalendarDate(task.completedAt)
-          : null,
-        today: now,
-      });
-      const paintedDue =
-        state === "missed" ? red(due) : state === "late" ? yellow(due) : due;
+    );
 
-      return [
-        dim(task.id.slice(0, 8)),
-        paintStatus(task.status),
-        paintPriority(task.priority),
-        task.title,
-        task.assignees.map((row) => row.user.name).join(", ") || dim("—"),
-        paintedDue || dim("—"),
-        task._count.progress > 0 ? `${task._count.progress}` : dim("0"),
-      ];
+  const rows = ordered.map((task) => {
+    const due = task.dueDate ? formatCalendarDate(task.dueDate) : null;
+    const state = deliveryState({
+      status: task.status,
+      dueDate: due,
+      completedAt: task.completedAt
+        ? formatCalendarDate(task.completedAt)
+        : null,
+      today: now,
     });
+
+    return [
+      dim(task.id.slice(0, 8)),
+      statusBadge(task.status),
+      priorityBadge(task.priority),
+      task.title,
+      task.assignees.map((row) => row.user.name).join(", ") || dim("—"),
+      // A finished task is judged on how it landed, not on how far off it is.
+      task.status === Status.DONE
+        ? due
+          ? DELIVERY_META[state].label
+          : dim("—")
+        : dueLabel(due, now),
+      task._count.progress > 0 ? `${task._count.progress}` : dim("0"),
+    ];
+  });
 
   table(
     [
       { header: "ID" },
       { header: "สถานะ" },
       { header: "ระดับ" },
-      { header: "ชื่องาน" },
+      { header: "ชื่องาน", flex: true },
       { header: "ผู้รับผิดชอบ" },
       { header: "กำหนดส่ง" },
       { header: "อัปเดต", align: "right" },
     ],
     rows,
   );
-  info(`\n${tasks.length} งาน`);
+
+  const counts = TASK_STATUS_ORDER.map((status) => {
+    const total = ordered.filter((task) => task.status === status).length;
+    return total > 0 ? `${paintStatus(status)} ${total}` : null;
+  }).filter(Boolean);
+  console.log(
+    `  ${dim(`${ordered.length} งาน ·`)} ${counts.join(dim("  ·  "))}`,
+  );
 }
 
 /** `teamflow show <ref>` — one task with its whole progress thread. */
@@ -140,38 +154,46 @@ export async function showCommand(
     },
   });
 
-  console.log(`\n${bold(task.title)}  ${dim(task.id)}`);
-  const facts = [
-    ["สถานะ", paintStatus(task.status)],
-    ["ความสำคัญ", paintPriority(task.priority)],
-    ["ผู้รับผิดชอบ", task.assignees.map((a) => a.user.name).join(", ") || "—"],
-    ["เริ่ม", formatCalendarDate(task.startDate)],
-    ["กำหนดส่ง", task.dueDate ? formatCalendarDate(task.dueDate) : "ไม่กำหนด"],
-    ["เกม", task.game?.name ?? task.gameNote ?? "—"],
-    ["สร้างโดย", task.createdBy.name],
-  ];
-  for (const [label, value] of facts) {
-    console.log(`  ${dim(`${label}:`)} ${value}`);
-  }
+  const now = today();
+  const due = task.dueDate ? formatCalendarDate(task.dueDate) : null;
 
-  if (task.dueDate) {
+  console.log("");
+  rule(task.title);
+  console.log("");
+
+  const facts: [string, string][] = [
+    ["สถานะ", statusBadge(task.status)],
+    ["ความสำคัญ", priorityBadge(task.priority)],
+    [
+      "ผู้รับผิดชอบ",
+      task.assignees.map((a) => a.user.name).join(", ") || dim("—"),
+    ],
+    ["เริ่ม", formatThaiDate(formatCalendarDate(task.startDate))],
+    ["กำหนดส่ง", due ? dueLabel(due, now) : dim("ไม่กำหนด")],
+  ];
+
+  if (due) {
     const state = deliveryState({
       status: task.status,
-      dueDate: formatCalendarDate(task.dueDate),
+      dueDate: due,
       completedAt: task.completedAt
         ? formatCalendarDate(task.completedAt)
         : null,
-      today: today(),
+      today: now,
     });
-    console.log(`  ${dim("การส่งงาน:")} ${DELIVERY_META[state].label}`);
+    facts.push(["การส่งงาน", DELIVERY_META[state].label]);
   }
+  facts.push(["เกม", task.game?.name ?? task.gameNote ?? dim("—")]);
+  facts.push(["สร้างโดย", task.createdBy.name]);
+  facts.push(["ID", dim(task.id)]);
+  keyValues(facts);
 
   if (task.description) {
     heading("รายละเอียด");
     console.log(
       task.description
         .split("\n")
-        .map((line) => `  ${line}`)
+        .map((line) => `  ${dim("│")} ${line}`)
         .join("\n"),
     );
   }
@@ -184,15 +206,17 @@ export async function showCommand(
   }
 
   for (const entry of entries) {
-    const when = formatCalendarDate(entry.entryDate);
-    console.log(`\n  ${cyan(when)}  ${bold(entry.author.name)}`);
-    console.log(docToTerminal(entry.body, "    "));
+    const when = formatThaiDate(formatCalendarDate(entry.entryDate));
+    console.log(`\n  ${cyan("●")} ${bold(entry.author.name)}  ${dim(when)}`);
+    console.log(docToTerminal(entry.body, `  ${dim("│")} `));
     if (entry.imageUrls.length > 0) {
-      info(`    (แนบรูป ${entry.imageUrls.length} รูป)`);
+      console.log(
+        `  ${dim("│")} ${dim(`แนบรูป ${entry.imageUrls.length} รูป`)}`,
+      );
     }
     for (const comment of entry.comments) {
-      console.log(`    ${dim("↳")} ${bold(comment.author.name)}`);
-      console.log(docToTerminal(comment.body, "      "));
+      console.log(`  ${dim("│")}   ${dim("↳")} ${bold(comment.author.name)}`);
+      console.log(docToTerminal(comment.body, `  ${dim("│")}     `));
     }
   }
 }
@@ -295,7 +319,7 @@ export async function teamCommand(db: PrismaClient): Promise<void> {
   table(
     [
       { header: "ชื่อ" },
-      { header: "ตำแหน่ง" },
+      { header: "ตำแหน่ง", flex: true },
       { header: "งาน", align: "right" },
       { header: "เสร็จ", align: "right" },
       { header: "ความคืบหน้า" },
@@ -305,13 +329,7 @@ export async function teamCommand(db: PrismaClient): Promise<void> {
       member.jobTitle ?? dim("—"),
       String(member.total),
       String(member.done),
-      bar(member.percent),
+      progressBar(member.percent),
     ]),
   );
-}
-
-function bar(percent: number): string {
-  const filled = Math.round((percent / 100) * 12);
-  const painted = percent === 100 ? green : percent >= 50 ? yellow : dim;
-  return `${painted("█".repeat(filled))}${dim("░".repeat(12 - filled))} ${percent}%`;
 }

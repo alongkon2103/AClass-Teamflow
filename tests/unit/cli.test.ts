@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseArgs, flagValue, hasFlag } from "@/cli/args";
 import { textToRichText } from "@/cli/mentions";
-import { displayWidth, pad, truncate } from "@/cli/ui";
+import { displayWidth, dueLabel, pad, table, truncate } from "@/cli/ui";
 import { mentionedUserIds, richTextToPlain } from "@/lib/rich-text";
 
 describe("parseArgs", () => {
@@ -94,5 +94,82 @@ describe("terminal width", () => {
     expect(truncate("abcdefgh", 5)).toBe("abcd…");
     expect(displayWidth(truncate("abcdefgh", 5))).toBe(5);
     expect(truncate("abc", 5)).toBe("abc");
+  });
+});
+
+/** Runs `body` and returns every line it printed. */
+function capture(body: () => void): string[] {
+  const lines: string[] = [];
+  const spy = vi
+    .spyOn(console, "log")
+    .mockImplementation((line: unknown) => void lines.push(String(line)));
+  try {
+    body();
+  } finally {
+    spy.mockRestore();
+  }
+  return lines;
+}
+
+describe("table", () => {
+  afterEach(() => {
+    delete process.env.COLUMNS;
+  });
+
+  it("draws every line at the same width, Thai content included", () => {
+    const lines = capture(() =>
+      table(
+        [
+          { header: "ชื่อ" },
+          { header: "สถานะ" },
+          { header: "งาน", align: "right" },
+        ],
+        [
+          ["ผู้รับผิดชอบ", "● กำลังทำ", "12"],
+          ["A", "เสร็จสิ้น", "3"],
+        ],
+      ),
+    );
+
+    // Top border, header, separator, two rows, bottom border.
+    expect(lines).toHaveLength(6);
+    expect(new Set(lines.map(displayWidth)).size).toBe(1);
+  });
+
+  it("stays inside a narrow terminal by shrinking the flexible column", () => {
+    process.env.COLUMNS = "40";
+    const lines = capture(() =>
+      table(
+        [{ header: "ID" }, { header: "ชื่องาน", flex: true }],
+        [["cmtayjxf", "Competitor Research – TikTok Interactive Game Shops"]],
+      ),
+    );
+
+    expect(new Set(lines.map(displayWidth)).size).toBe(1);
+    expect(displayWidth(lines[0])).toBeLessThanOrEqual(40);
+    // The title is cut, not wrapped, so the grid survives.
+    expect(lines.some((line) => line.includes("…"))).toBe(true);
+  });
+
+  it("prints nothing when there are no rows", () => {
+    expect(capture(() => table([{ header: "ID" }], []))).toEqual([]);
+  });
+});
+
+describe("dueLabel", () => {
+  const today = "2026-08-29";
+
+  it("says how far off the date is", () => {
+    expect(dueLabel("2026-08-29", today)).toContain("วันนี้");
+    expect(dueLabel("2026-08-27", today)).toContain("เลย 2 วัน");
+    expect(dueLabel("2026-09-05", today)).toContain("อีก 7 วัน");
+  });
+
+  it("uses the Thai Buddhist-era date", () => {
+    expect(dueLabel("2026-09-05", today)).toContain("5 ก.ย. 2569");
+  });
+
+  it("shows a dash when nothing is set", () => {
+    expect(dueLabel(null, today)).toBe("—");
   });
 });

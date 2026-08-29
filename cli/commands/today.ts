@@ -5,14 +5,17 @@ import { formatCalendarDate, todayInBangkok } from "@/lib/date";
 import { listBoardTasks } from "@/server/services/task";
 import { listMeetings } from "@/server/services/meeting";
 import { listNotifications } from "@/server/services/notification";
+import { formatThaiDate } from "@/lib/format";
 import {
   bold,
   cyan,
   dim,
-  heading,
+  dueLabel,
   info,
-  paintPriority,
+  priorityBadge,
   red,
+  rule,
+  statusBadge,
   table,
   yellow,
 } from "../ui";
@@ -46,66 +49,86 @@ export async function todayCommand(
     (meeting) => formatCalendarDate(meeting.meetingAt) === now,
   );
 
-  console.log(`\n${bold(`สวัสดี ${actor.name}`)}  ${dim(now)}`);
+  console.log("");
+  rule(`สวัสดี ${actor.name}`);
+  console.log(
+    `  ${dim(formatThaiDate(now))}  ${dim("·")}  ${summary(overdue.length, dueToday.length, doing.length, inbox.unreadCount)}\n`,
+  );
 
   if (overdue.length > 0) {
-    heading(red(`เลยกำหนดส่ง (${overdue.length})`));
+    console.log(red(`  เลยกำหนดส่ง (${overdue.length})`));
     table(
       [
         { header: "ID" },
-        { header: "กำหนด" },
+        { header: "กำหนดส่ง" },
         { header: "ระดับ" },
-        { header: "ชื่องาน" },
+        { header: "ชื่องาน", flex: true },
       ],
       overdue.map((task) => [
         dim(task.id.slice(0, 8)),
-        red(formatCalendarDate(task.dueDate as Date)),
-        paintPriority(task.priority),
+        dueLabel(formatCalendarDate(task.dueDate as Date), now),
+        priorityBadge(task.priority),
         task.title,
       ]),
     );
+    console.log("");
   }
 
   if (dueToday.length > 0) {
-    heading(yellow(`ครบกำหนดวันนี้ (${dueToday.length})`));
+    console.log(yellow(`  ครบกำหนดวันนี้ (${dueToday.length})`));
     table(
-      [{ header: "ID" }, { header: "ระดับ" }, { header: "ชื่องาน" }],
+      [
+        { header: "ID" },
+        { header: "สถานะ" },
+        { header: "ระดับ" },
+        { header: "ชื่องาน", flex: true },
+      ],
       dueToday.map((task) => [
         dim(task.id.slice(0, 8)),
-        paintPriority(task.priority),
+        statusBadge(task.status),
+        priorityBadge(task.priority),
         task.title,
       ]),
     );
+    console.log("");
   }
 
-  heading(`กำลังทำอยู่ (${doing.length})`);
+  console.log(bold(`  กำลังทำอยู่ (${doing.length})`));
   if (doing.length === 0) {
-    info("  ไม่มีงานที่กำลังทำ");
+    info("  ไม่มีงานที่กำลังทำ\n");
   } else {
     table(
-      [{ header: "ID" }, { header: "ชื่องาน" }, { header: "อัปเดตล่าสุด" }],
+      [
+        { header: "ID" },
+        { header: "ชื่องาน", flex: true },
+        { header: "กำหนดส่ง" },
+        { header: "อัปเดต", align: "right" },
+      ],
       doing.map((task) => [
         dim(task.id.slice(0, 8)),
         task.title,
+        dueLabel(task.dueDate ? formatCalendarDate(task.dueDate) : null, now),
         task._count.progress > 0
           ? `${task._count.progress} ครั้ง`
-          : dim("ยังไม่เคยอัปเดต"),
+          : dim("ยังไม่เคย"),
       ]),
     );
+    console.log("");
   }
 
   if (today.length > 0) {
-    heading(`ประชุมวันนี้ (${today.length})`);
+    console.log(bold(`  ประชุมวันนี้ (${today.length})`));
     for (const meeting of today) {
       console.log(
-        `  ${cyan(meeting.startTime ?? "ทั้งวัน")}  ${meeting.title}`,
+        `  ${cyan("●")} ${cyan(meeting.startTime ?? "ทั้งวัน")}  ${meeting.title}`,
       );
     }
+    console.log("");
   }
 
   if (inbox.unreadCount > 0) {
     info(
-      `\nมีแจ้งเตือนใหม่ ${inbox.unreadCount} รายการ — ดูด้วย \`teamflow inbox\``,
+      `  มีแจ้งเตือนใหม่ ${inbox.unreadCount} รายการ — ดูด้วย \`teamflow inbox\``,
     );
   }
 
@@ -115,6 +138,22 @@ export async function todayCommand(
     doing.length === 0 &&
     inbox.unreadCount === 0
   ) {
-    info("\nวันนี้ไม่มีอะไรค้าง");
+    info("  วันนี้ไม่มีอะไรค้าง");
   }
+}
+
+/** The whole day in one line, for someone who reads nothing else. */
+function summary(
+  overdue: number,
+  dueToday: number,
+  doing: number,
+  unread: number,
+): string {
+  const parts = [
+    overdue > 0 ? red(`เลยกำหนด ${overdue}`) : null,
+    dueToday > 0 ? yellow(`ครบกำหนดวันนี้ ${dueToday}`) : null,
+    doing > 0 ? `กำลังทำ ${doing}` : null,
+    unread > 0 ? cyan(`แจ้งเตือน ${unread}`) : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(dim("  ·  ")) : dim("ไม่มีอะไรค้าง");
 }

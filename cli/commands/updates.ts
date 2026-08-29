@@ -14,13 +14,14 @@ import type { Args } from "../args";
 import { flagValue, hasFlag } from "../args";
 import { resolveTask } from "../resolve";
 import { textToRichText } from "../mentions";
+import { formatThaiDate } from "@/lib/format";
 import {
   bold,
   cyan,
   dim,
   docToTerminal,
-  heading,
   info,
+  rule,
   success,
   table,
 } from "../ui";
@@ -82,17 +83,26 @@ export async function inboxCommand(
     return;
   }
 
-  for (const row of shown) {
-    const payload = (row.payload ?? {}) as NotificationPayload;
-    const mark = row.readAt ? dim("·") : cyan("●");
-    const when = row.createdAt.toISOString().slice(0, 10);
-    console.log(
-      `${mark} ${dim(when)}  ${notificationMessage(row.type, payload, row.actor?.name ?? null)}`,
-    );
-    if (payload.excerpt) info(`    ${payload.excerpt}`);
-  }
+  table(
+    [{ header: "" }, { header: "วันที่" }, { header: "เรื่อง", flex: true }],
+    shown.map((row) => {
+      const payload = (row.payload ?? {}) as NotificationPayload;
+      const message = notificationMessage(
+        row.type,
+        payload,
+        row.actor?.name ?? null,
+      );
+      return [
+        row.readAt ? dim("·") : cyan("●"),
+        formatThaiDate(row.createdAt.toISOString().slice(0, 10)),
+        // The table is one line per row, so the excerpt trails the message and
+        // the column truncates the pair as a whole.
+        payload.excerpt ? `${message} ${dim(`— ${payload.excerpt}`)}` : message,
+      ];
+    }),
+  );
   info(
-    `\nยังไม่ได้อ่าน ${unreadCount} รายการ — สั่ง \`teamflow inbox --read\` เพื่อล้าง`,
+    `  ยังไม่ได้อ่าน ${unreadCount} รายการ — สั่ง \`teamflow inbox --read\` เพื่อล้าง`,
   );
 }
 
@@ -108,26 +118,34 @@ export async function meetingsCommand(
     .filter((meeting) => formatCalendarDate(meeting.meetingAt) >= now)
     .reverse();
 
-  heading("การประชุมที่จะถึง");
+  console.log("");
+  rule("การประชุมที่จะถึง");
   if (upcoming.length === 0) {
     info("  ไม่มีนัดประชุม");
   } else {
     table(
-      [{ header: "วันที่" }, { header: "เวลา" }, { header: "หัวข้อ" }],
+      [
+        { header: "วันที่" },
+        { header: "เวลา" },
+        { header: "หัวข้อ", flex: true },
+        { header: "จดโดย" },
+      ],
       upcoming.map((meeting) => [
-        formatCalendarDate(meeting.meetingAt),
-        meeting.startTime ?? dim("—"),
+        formatThaiDate(formatCalendarDate(meeting.meetingAt)),
+        meeting.startTime ? `${meeting.startTime} น.` : dim("ทั้งวัน"),
         meeting.title,
+        dim(meeting.createdBy.name),
       ]),
     );
   }
 
   if (!hasFlag(args, "past")) {
-    info("\nดูบันทึกย้อนหลังด้วย `teamflow meetings --past`");
+    info("  ดูบันทึกย้อนหลังด้วย `teamflow meetings --past`");
     return;
   }
 
-  heading("บันทึกการประชุมย้อนหลัง");
+  console.log("");
+  rule("บันทึกการประชุมย้อนหลัง");
   const past = meetings.filter(
     (meeting) => formatCalendarDate(meeting.meetingAt) < now,
   );
@@ -137,10 +155,12 @@ export async function meetingsCommand(
   }
 
   for (const meeting of past.slice(0, 10)) {
-    console.log(
-      `\n  ${cyan(formatCalendarDate(meeting.meetingAt))}  ${bold(meeting.title)}`,
-    );
-    if (meeting.summary) console.log(docToTerminal(meeting.summary, "    "));
-    else info("    ยังไม่ได้บันทึกสรุปผล");
+    const when = formatThaiDate(formatCalendarDate(meeting.meetingAt));
+    console.log(`\n  ${cyan("●")} ${bold(meeting.title)}  ${dim(when)}`);
+    if (meeting.summary) {
+      console.log(docToTerminal(meeting.summary, `  ${dim("│")} `));
+    } else {
+      console.log(`  ${dim("│")} ${dim("ยังไม่ได้บันทึกสรุปผล")}`);
+    }
   }
 }
