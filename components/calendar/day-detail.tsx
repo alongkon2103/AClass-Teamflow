@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { CalendarDays, MessageSquare, Umbrella } from "lucide-react";
+import {
+  CalendarDays,
+  MessageSquare,
+  NotebookPen,
+  Umbrella,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -54,7 +59,8 @@ export function DayDetailDialog({
     detail !== null &&
     detail.leaves.length === 0 &&
     detail.progress.length === 0 &&
-    detail.dueTasks.length === 0;
+    detail.dueTasks.length === 0 &&
+    detail.meetings.length === 0;
 
   return (
     <Dialog open={day !== null} onOpenChange={(next) => !next && onClose()}>
@@ -62,7 +68,7 @@ export function DayDetailDialog({
         <DialogHeader>
           <DialogTitle>{day ? formatThaiDate(day) : ""}</DialogTitle>
           <DialogDescription>
-            การลา งานที่ครบกำหนด และความคืบหน้าของวันนี้
+            การประชุม การลา งานที่ครบกำหนด และความคืบหน้าของวันนี้
           </DialogDescription>
         </DialogHeader>
 
@@ -114,6 +120,42 @@ export function DayDetailDialog({
                           ? "ลา 1 วัน"
                           : `${formatThaiDate(leave.startDate)} – ${formatThaiDate(leave.endDate)}`}
                       </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {detail.meetings.length > 0 ? (
+              <section>
+                <h3 className="text-primary-ink mb-2 inline-flex items-center gap-1.5 text-[13px] font-bold">
+                  <NotebookPen size={15} strokeWidth={2} />
+                  การประชุม
+                </h3>
+                <ul className="flex flex-col gap-2">
+                  {detail.meetings.map((meeting) => (
+                    <li
+                      key={meeting.id}
+                      className="rounded-xl px-3 py-2"
+                      style={{
+                        background:
+                          "color-mix(in srgb, var(--color-primary) 12%, transparent)",
+                        borderLeft: "3px solid var(--color-primary)",
+                      }}
+                    >
+                      <p className="text-[13px] font-bold">
+                        {meeting.startTime ? (
+                          <span className="text-primary-ink mr-1.5">
+                            {meeting.startTime} น.
+                          </span>
+                        ) : null}
+                        {meeting.title}
+                      </p>
+                      {meeting.description ? (
+                        <p className="text-muted-foreground mt-1 text-xs leading-relaxed whitespace-pre-wrap">
+                          {meeting.description}
+                        </p>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

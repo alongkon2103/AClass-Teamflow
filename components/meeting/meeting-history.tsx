@@ -16,7 +16,9 @@ export type MeetingView = {
   id: string;
   title: string;
   meetingAt: string;
-  summary: string;
+  startTime: string | null;
+  description: string | null;
+  summary: string | null;
   createdBy: {
     id: string;
     name: string;
@@ -91,8 +93,10 @@ export function MeetingHistory({
                     {meeting.title}
                   </span>
                   <span className="text-muted-foreground block text-[11px]">
-                    {formatThaiDate(meeting.meetingAt)} ·{" "}
-                    {meeting.createdBy.name}
+                    {formatThaiDate(meeting.meetingAt)}
+                    {meeting.startTime
+                      ? ` · ${meeting.startTime} น.`
+                      : ""} · {meeting.createdBy.name}
                   </span>
                 </span>
                 <ChevronDown
@@ -118,9 +122,29 @@ export function MeetingHistory({
                         บันทึกเมื่อ {formatThaiDate(meeting.meetingAt)}
                       </span>
                     </div>
-                    <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
-                      {meeting.summary}
+                    {meeting.description ? (
+                      <div className="mb-3">
+                        <p className="text-muted-foreground mb-1 text-[11px] font-bold">
+                          รายละเอียด / วาระ
+                        </p>
+                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
+                          {meeting.description}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    <p className="text-muted-foreground mb-1 text-[11px] font-bold">
+                      สรุปผลการประชุม
                     </p>
+                    {meeting.summary ? (
+                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
+                        {meeting.summary}
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground text-[13px]">
+                        ยังไม่ได้บันทึกสรุปผล
+                      </p>
+                    )}
                   </div>
 
                   {canManage ? (

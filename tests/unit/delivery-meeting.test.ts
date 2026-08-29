@@ -139,30 +139,60 @@ describe("delivery colours", () => {
 });
 
 describe("meetingFormSchema", () => {
-  const base = {
-    title: "ประชุมทีม",
-    meetingAt: "2026-08-28",
-    summary: "สรุปผล",
-  };
+  const base = { title: "ประชุมทีม", meetingAt: "2026-08-28" };
 
-  it("accepts a complete record and trims it", () => {
-    const parsed = meetingFormSchema.parse({
-      ...base,
-      title: "  ประชุมทีม  ",
-    });
-    expect(parsed.title).toBe("ประชุมทีม");
+  it("books a meeting with only a title and a date", () => {
+    // Nothing has happened yet, so there is no write-up to demand.
+    const parsed = meetingFormSchema.parse(base);
+    expect(parsed.summary).toBeNull();
+    expect(parsed.startTime).toBeNull();
+    expect(parsed.description).toBeNull();
   });
 
-  it("requires a title, a date and a summary", () => {
+  it("keeps a time, an agenda and a write-up when given", () => {
+    const parsed = meetingFormSchema.parse({
+      ...base,
+      startTime: "14:30",
+      description: " วาระที่ 1 ",
+      summary: " สรุปผล ",
+    });
+    expect(parsed.startTime).toBe("14:30");
+    expect(parsed.description).toBe("วาระที่ 1");
+    expect(parsed.summary).toBe("สรุปผล");
+  });
+
+  it("trims the title and still requires one", () => {
+    expect(
+      meetingFormSchema.parse({ ...base, title: "  ประชุม  " }).title,
+    ).toBe("ประชุม");
     expect(meetingFormSchema.safeParse({ ...base, title: " " }).success).toBe(
       false,
     );
-    expect(meetingFormSchema.safeParse({ ...base, summary: " " }).success).toBe(
-      false,
-    );
+  });
+
+  it("requires a well-formed date", () => {
     expect(
       meetingFormSchema.safeParse({ ...base, meetingAt: "28/08/2026" }).success,
     ).toBe(false);
+  });
+
+  it("accepts a 24-hour clock and rejects anything else", () => {
+    for (const time of ["00:00", "09:05", "23:59"]) {
+      expect(
+        meetingFormSchema.safeParse({ ...base, startTime: time }).success,
+      ).toBe(true);
+    }
+    for (const time of ["24:00", "9:05", "13:60", "บ่ายสอง", "14.30"]) {
+      expect(
+        meetingFormSchema.safeParse({ ...base, startTime: time }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("treats an empty time as no time set, not an error", () => {
+    expect(
+      meetingFormSchema.parse({ ...base, startTime: "" }).startTime,
+    ).toBeNull();
   });
 
   it("allows a long set of minutes", () => {

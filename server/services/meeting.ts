@@ -10,20 +10,49 @@ export async function listMeetings(db: PrismaClient) {
       id: true,
       title: true,
       meetingAt: true,
+      startTime: true,
+      description: true,
       summary: true,
       createdAt: true,
       createdBy: {
         select: { id: true, name: true, avatarColor: true, avatarUrl: true },
       },
     },
-    orderBy: [{ meetingAt: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ meetingAt: "desc" }, { startTime: "desc" }],
+  });
+}
+
+/** Meetings booked on days within a range, for the calendar. */
+export async function listMeetingsInRange(
+  db: PrismaClient,
+  fromISO: string,
+  toISO: string,
+) {
+  return db.meeting.findMany({
+    where: {
+      meetingAt: {
+        gte: parseCalendarDate(fromISO),
+        lte: parseCalendarDate(toISO),
+      },
+    },
+    select: {
+      id: true,
+      title: true,
+      meetingAt: true,
+      startTime: true,
+      description: true,
+      summary: true,
+    },
+    orderBy: [{ meetingAt: "asc" }, { startTime: "asc" }],
   });
 }
 
 export type MeetingInput = {
   title: string;
   meetingAt: string;
-  summary: string;
+  startTime: string | null;
+  description: string | null;
+  summary: string | null;
 };
 
 export async function createMeeting(
@@ -37,6 +66,8 @@ export async function createMeeting(
     data: {
       title: input.title,
       meetingAt: parseCalendarDate(input.meetingAt),
+      startTime: input.startTime,
+      description: input.description,
       summary: input.summary,
       createdById: actor.id,
     },
@@ -63,6 +94,8 @@ export async function updateMeeting(
     data: {
       title: input.title,
       meetingAt: parseCalendarDate(input.meetingAt),
+      startTime: input.startTime,
+      description: input.description,
       summary: input.summary,
     },
     select: { id: true },

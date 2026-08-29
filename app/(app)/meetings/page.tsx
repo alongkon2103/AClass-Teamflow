@@ -21,7 +21,7 @@ export default async function MeetingsPage() {
     <>
       <PageHeader
         title="รายการประชุม"
-        description="บันทึกสรุปผลการประชุมและย้อนดูประวัติที่ผ่านมา"
+        description="นัดประชุม บันทึกสรุปผล และย้อนดูประวัติที่ผ่านมา"
       />
 
       <MeetingBoard
@@ -31,6 +31,8 @@ export default async function MeetingsPage() {
           id: row.id,
           title: row.title,
           meetingAt: formatCalendarDate(row.meetingAt),
+          startTime: row.startTime,
+          description: row.description,
           summary: row.summary,
           createdBy: row.createdBy,
         }))}

@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { type Actor, taskVisibilityFilter } from "@/lib/permissions";
 import { parseCalendarDate, formatCalendarDate } from "@/lib/date";
 import { listLeavesInRange } from "./leave";
+import { listMeetingsInRange } from "./meeting";
 
 /** First and last day of a month, as calendar strings. */
 export function monthBounds(year: number, month: number) {
@@ -34,6 +35,10 @@ export type CalendarMonth = {
   >;
   progressByDay: Record<string, number>;
   dueByDay: Record<string, number>;
+  meetingsByDay: Record<
+    string,
+    { id: string; title: string; startTime: string | null }[]
+  >;
 };
 
 /**
@@ -50,7 +55,7 @@ export async function loadCalendarMonth(
   const fromDate = parseCalendarDate(from);
   const toDate = parseCalendarDate(to);
 
-  const [leaves, progress, due] = await Promise.all([
+  const [leaves, progress, due, meetings] = await Promise.all([
     listLeavesInRange(db, from, to),
     db.progressEntry.findMany({
       where: {
@@ -67,6 +72,7 @@ export async function loadCalendarMonth(
       },
       select: { dueDate: true },
     }),
+    listMeetingsInRange(db, from, to),
   ]);
 
   const leavesByDay: CalendarMonth["leavesByDay"] = {};
@@ -100,7 +106,17 @@ export async function loadCalendarMonth(
     dueByDay[day] = (dueByDay[day] ?? 0) + 1;
   }
 
-  return { leavesByDay, progressByDay, dueByDay };
+  const meetingsByDay: CalendarMonth["meetingsByDay"] = {};
+  for (const meeting of meetings) {
+    const day = formatCalendarDate(meeting.meetingAt);
+    (meetingsByDay[day] ??= []).push({
+      id: meeting.id,
+      title: meeting.title,
+      startTime: meeting.startTime,
+    });
+  }
+
+  return { leavesByDay, progressByDay, dueByDay, meetingsByDay };
 }
 
 /** Everything shown in the day detail sheet. */
@@ -111,7 +127,7 @@ export async function loadDayDetail(
 ) {
   const day = parseCalendarDate(dayISO);
 
-  const [leaves, progress, dueTasks] = await Promise.all([
+  const [leaves, progress, dueTasks, meetings] = await Promise.all([
     listLeavesInRange(db, dayISO, dayISO),
     db.progressEntry.findMany({
       where: {
@@ -149,6 +165,7 @@ export async function loadDayDetail(
         },
       },
     }),
+    listMeetingsInRange(db, dayISO, dayISO),
   ]);
 
   return {
@@ -177,6 +194,13 @@ export async function loadDayDetail(
         ? formatCalendarDate(task.completedAt)
         : null,
       assignees: task.assignees.map((row) => row.user),
+    })),
+    meetings: meetings.map((meeting) => ({
+      id: meeting.id,
+      title: meeting.title,
+      startTime: meeting.startTime,
+      description: meeting.description,
+      summary: meeting.summary,
     })),
   };
 }

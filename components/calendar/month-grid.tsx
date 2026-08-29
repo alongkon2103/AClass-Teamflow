@@ -91,6 +91,7 @@ export function MonthGrid({
           const leaves = data.leavesByDay[key] ?? [];
           const progressCount = data.progressByDay[key] ?? 0;
           const dueCount = data.dueByDay[key] ?? 0;
+          const meetings = data.meetingsByDay[key] ?? [];
           const isToday = key === today;
           const hasLeave = leaves.length > 0;
           const allPending =
@@ -106,9 +107,9 @@ export function MonthGrid({
               onClick={() => onSelectDay(key)}
               aria-label={`วันที่ ${day} ${THAI_MONTHS_FULL[month - 1]}${
                 hasLeave ? ` มีคนลา ${leaves.length} คน` : ""
-              }${progressCount ? ` ความคืบหน้า ${progressCount} รายการ` : ""}${
-                dueCount ? ` ครบกำหนด ${dueCount} งาน` : ""
-              }`}
+              }${meetings.length ? ` ประชุม ${meetings.length} รายการ` : ""}${
+                progressCount ? ` ความคืบหน้า ${progressCount} รายการ` : ""
+              }${dueCount ? ` ครบกำหนด ${dueCount} งาน` : ""}`}
               className={cn(
                 "flex min-h-[86px] flex-col gap-1 rounded-xl p-2 text-left transition-shadow duration-150",
                 "hover:shadow-sm",
@@ -145,6 +146,22 @@ export function MonthGrid({
                   }}
                 >
                   ลา · {label}
+                </span>
+              ) : null}
+
+              {meetings.length > 0 ? (
+                <span
+                  className="truncate rounded-md px-1.5 py-0.5 text-[10.5px] font-bold"
+                  style={{
+                    color: "var(--color-primary-ink)",
+                    background:
+                      "color-mix(in srgb, var(--color-primary) 18%, transparent)",
+                  }}
+                >
+                  {meetings[0].startTime ? `${meetings[0].startTime} ` : ""}
+                  {meetings.length === 1
+                    ? meetings[0].title
+                    : `ประชุม ${meetings.length} รายการ`}
                 </span>
               ) : null}
 
@@ -196,6 +213,17 @@ export function MonthGrid({
         <li className="inline-flex items-center gap-1.5">
           <span aria-hidden="true" className="bg-primary size-2 rounded-full" />
           ส่งความคืบหน้า
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="size-3 rounded"
+            style={{
+              background:
+                "color-mix(in srgb, var(--color-primary) 30%, transparent)",
+            }}
+          />
+          นัดประชุม
         </li>
         <li className="inline-flex items-center gap-1.5">
           <span

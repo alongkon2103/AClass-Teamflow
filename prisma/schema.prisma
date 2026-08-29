@@ -209,12 +209,18 @@ model Leave {
   @@index([userId])
 }
 
-/// A recorded meeting and what was decided in it.
+/// A meeting through its whole life: booked ahead, then written up afterwards.
 model Meeting {
   id          String   @id @default(cuid())
   title       String
   meetingAt   DateTime @db.Date
-  summary     String
+  /// Start time as "HH:mm". Stored apart from the date so the calendar day can
+  /// never shift with a timezone, the way a full timestamp would.
+  startTime   String?
+  /// Agenda or context, written when the meeting is booked.
+  description String?
+  /// What was decided. Empty until the meeting has happened.
+  summary     String?
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
