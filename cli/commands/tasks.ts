@@ -136,8 +136,16 @@ export async function showCommand(
   if (!reference) throw new Error("ใช้: teamflow show <งาน>");
 
   const found = await resolveTask(db, actor, reference);
+  await renderTask(db, found.id);
+}
+
+/** The detail view, shared by `show` and the interactive browser. */
+export async function renderTask(
+  db: PrismaClient,
+  taskId: string,
+): Promise<void> {
   const task = await db.task.findUniqueOrThrow({
-    where: { id: found.id },
+    where: { id: taskId },
     select: {
       id: true,
       title: true,

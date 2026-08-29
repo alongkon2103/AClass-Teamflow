@@ -2,13 +2,14 @@ import type { PrismaClient, TaskStatus, Priority } from "@prisma/client";
 import { TaskStatus as Status, Priority as Level } from "@prisma/client";
 import type { Actor } from "@/lib/permissions";
 import { taskVisibilityFilter } from "@/lib/permissions";
+import { canPrompt } from "./prompt";
 
 /**
  * Task references, so nobody has to type a cuid.
  *
  * Accepts the full id, a unique id prefix (like a short git hash), or a unique
- * piece of the title. Several matches is an error with the candidates listed,
- * never a silent guess at which one was meant.
+ * piece of the title. Several matches never resolves to a guess: in a terminal
+ * it becomes a picker, and in a script it is an error listing the candidates.
  */
 export async function resolveTask(
   db: PrismaClient,
@@ -41,6 +42,16 @@ export async function resolveTask(
   if (matches.length === 1) return matches[0];
   if (matches.length === 0) {
     throw new Error(`ไม่พบงานที่ตรงกับ "${needle}"`);
+  }
+
+  // In a terminal the ambiguity is a question, not an error: pick from a list.
+  if (canPrompt()) {
+    const { pickTask } = await import("./browse");
+    const chosen = await pickTask(matches);
+    if (!chosen) throw new Error("ยกเลิกแล้ว");
+    return matches.find(
+      (task) => task.id === chosen,
+    ) as (typeof matches)[number];
   }
 
   const list = matches

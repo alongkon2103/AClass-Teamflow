@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseArgs, flagValue, hasFlag } from "@/cli/args";
 import { textToRichText } from "@/cli/mentions";
 import { displayWidth, dueLabel, pad, table, truncate } from "@/cli/ui";
+import { isCancel, listWindow, navigate, parseKey } from "@/cli/prompt";
+import { browseAction } from "@/cli/browse";
 import { mentionedUserIds, richTextToPlain } from "@/lib/rich-text";
 
 describe("parseArgs", () => {
@@ -171,5 +173,107 @@ describe("dueLabel", () => {
 
   it("shows a dash when nothing is set", () => {
     expect(dueLabel(null, today)).toBe("—");
+  });
+});
+
+describe("parseKey", () => {
+  it("recognises the arrow keys", () => {
+    expect(parseKey("\u001b[A").name).toBe("up");
+    expect(parseKey("\u001b[B").name).toBe("down");
+    expect(parseKey("\u001b[C").name).toBe("right");
+    expect(parseKey("\u001b[D").name).toBe("left");
+  });
+
+  it("recognises enter, space and escape", () => {
+    expect(parseKey("\r").name).toBe("enter");
+    expect(parseKey("\n").name).toBe("enter");
+    expect(parseKey(" ").name).toBe("space");
+    expect(parseKey("\u001b").name).toBe("escape");
+    expect(parseKey("\u0003").name).toBe("ctrl-c");
+  });
+
+  it("passes anything else through as a character", () => {
+    expect(parseKey("q")).toEqual({ name: "char", text: "q" });
+  });
+
+  it("tells Escape apart from an escape sequence", () => {
+    // Both start with the same byte; only the bare one cancels.
+    expect(isCancel(parseKey("\u001b"))).toBe(true);
+    expect(isCancel(parseKey("\u001b[A"))).toBe(false);
+  });
+});
+
+describe("navigate", () => {
+  const key = (text: string) => parseKey(text);
+
+  it("moves with the arrows and with j/k", () => {
+    expect(navigate(key("\u001b[B"), 0, 5)).toBe(1);
+    expect(navigate(key("j"), 0, 5)).toBe(1);
+    expect(navigate(key("\u001b[A"), 3, 5)).toBe(2);
+    expect(navigate(key("k"), 3, 5)).toBe(2);
+  });
+
+  it("wraps around both ends", () => {
+    expect(navigate(key("\u001b[A"), 0, 5)).toBe(4);
+    expect(navigate(key("\u001b[B"), 4, 5)).toBe(0);
+  });
+
+  it("jumps to the ends and by pages, without running off", () => {
+    expect(navigate(key("\u001b[H"), 3, 5)).toBe(0);
+    expect(navigate(key("\u001b[F"), 0, 5)).toBe(4);
+    expect(navigate(key("\u001b[5~"), 2, 40)).toBe(0);
+    expect(navigate(key("\u001b[6~"), 38, 40)).toBe(39);
+  });
+
+  it("returns null for a key that is not movement", () => {
+    expect(navigate(key("\r"), 0, 5)).toBeNull();
+    expect(navigate(key(" "), 0, 5)).toBeNull();
+    expect(navigate(key("m"), 0, 5)).toBeNull();
+  });
+
+  it("does nothing on an empty list", () => {
+    expect(navigate(key("\u001b[B"), 0, 0)).toBeNull();
+  });
+});
+
+describe("listWindow", () => {
+  it("shows the whole list when it fits", () => {
+    expect(listWindow(0, 4, 10)).toEqual({ start: 0, end: 4 });
+  });
+
+  it("keeps the cursor inside the window as it moves", () => {
+    for (let index = 0; index < 40; index++) {
+      const { start, end } = listWindow(index, 40, 10);
+      expect(index).toBeGreaterThanOrEqual(start);
+      expect(index).toBeLessThan(end);
+      expect(end - start).toBe(10);
+    }
+  });
+
+  it("stops at the ends instead of scrolling past them", () => {
+    expect(listWindow(0, 40, 10).start).toBe(0);
+    expect(listWindow(39, 40, 10).end).toBe(40);
+  });
+});
+
+describe("browseAction", () => {
+  it("maps the board shortcuts", () => {
+    expect(browseAction(parseKey("\r"))).toBe("open");
+    expect(browseAction(parseKey(" "))).toBe("open");
+    expect(browseAction(parseKey("m"))).toBe("move");
+    expect(browseAction(parseKey("l"))).toBe("log");
+    expect(browseAction(parseKey("d"))).toBe("toggle-done");
+  });
+
+  it("quits on q, Escape and Ctrl+C", () => {
+    expect(browseAction(parseKey("q"))).toBe("quit");
+    expect(browseAction(parseKey("\u001b"))).toBe("quit");
+    expect(browseAction(parseKey("\u0003"))).toBe("quit");
+  });
+
+  it("ignores a key with no meaning here", () => {
+    expect(browseAction(parseKey("z"))).toBeNull();
+    // Arrows are movement, handled before the action map.
+    expect(browseAction(parseKey("\u001b[B"))).toBeNull();
   });
 });

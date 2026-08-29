@@ -1,4 +1,5 @@
-import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
+import { db } from "./db";
 import { ForbiddenError } from "@/lib/permissions";
 import { NotFoundError } from "@/server/services/task";
 import { flagValue, parseArgs } from "./args";
@@ -23,6 +24,11 @@ import { todayCommand } from "./commands/today";
 
 const HELP = `
 ${bold("teamflow")} — TeamFlow จากบรรทัดคำสั่ง
+
+${bold("โหมดโต้ตอบ")}
+  ${dim("teamflow")}                       เปิดบอร์ดแบบเลื่อนด้วยลูกศร (ไม่ต้องใส่คำสั่ง)
+                                 ↑↓ เลื่อน · Enter เปิดดู · m ย้ายสถานะ
+                                 l บันทึกความคืบหน้า · d สลับงานที่เสร็จ · q ออก
 
 ${bold("บัญชี")}
   login [--email อีเมล]           เข้าสู่ระบบ (ส่งรหัสผ่านทาง stdin ก็ได้)
@@ -61,12 +67,20 @@ export async function run(argv: string[]): Promise<number> {
   const command = argv[0];
   const args = parseArgs(argv.slice(1));
 
-  if (!command || command === "help" || command === "--help") {
+  if (command === "help" || command === "--help") {
     console.log(HELP);
     return 0;
   }
 
   try {
+    // No command at all opens the keyboard-driven board, which is the fastest
+    // way in; `teamflow help` still lists everything.
+    if (!command || command === "ui") {
+      const { browse } = await import("./browse");
+      await browse(db, await requireActor(db));
+      return 0;
+    }
+
     switch (command) {
       case "login": {
         await login(db, flagValue(args, "email"));
@@ -148,6 +162,15 @@ export async function run(argv: string[]): Promise<number> {
         return 1;
     }
   } catch (error) {
+    // Prisma's own message is a stack dump with the failing query in it, which
+    // tells the reader nothing they can act on.
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      fail("ต่อฐานข้อมูลไม่ได้");
+      info(
+        "เปิด SSH tunnel ไปยัง server ก่อน หรือรันคำสั่งนี้บนเครื่อง server เอง",
+      );
+      return 1;
+    }
     if (error instanceof ForbiddenError) {
       fail(error.message);
       return 1;
@@ -159,6 +182,7 @@ export async function run(argv: string[]): Promise<number> {
     fail(error instanceof Error ? error.message : String(error));
     return 1;
   } finally {
-    await db.$disconnect();
+    // Disconnecting a client that never connected must not mask the real error.
+    await db.$disconnect().catch(() => undefined);
   }
 }
