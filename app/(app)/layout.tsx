@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { sweepFinishedTasks } from "@/server/services/archive";
 import { getCurrentUser, signOut } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Header } from "@/components/shell/header";
@@ -42,6 +43,11 @@ export default async function AppLayout({
   }
   // signOut throws a redirect, so this only narrows the type for the compiler.
   if (!account) redirect("/login");
+
+  // Finished work leaves the board on its own. Done here rather than on a
+  // schedule so there is no cron to keep alive; the sweep skips itself once it
+  // has run for the day, so this costs one query per process per day.
+  await sweepFinishedTasks(db);
 
   return (
     <div className="flex min-h-dvh flex-col">

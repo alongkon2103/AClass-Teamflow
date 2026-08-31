@@ -9,6 +9,10 @@ export type BoardTaskView = {
   priority: Priority;
   startDate: string; // YYYY-MM-DD, already normalised to Bangkok
   dueDate: string | null;
+  /** Calendar day the work finished; drives the countdown into the archive. */
+  completedAt: string | null;
+  /** Stands in for completedAt on older tasks that never recorded one. */
+  updatedAt: string;
   sortOrder: number;
   assigneeIds: string[];
   assignees: { id: string; name: string; avatarColor: string }[];

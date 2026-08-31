@@ -41,6 +41,8 @@ export default async function BoardPage({
     priority: task.priority,
     startDate: formatCalendarDate(task.startDate),
     dueDate: toCalendarString(task.dueDate),
+    completedAt: toCalendarString(task.completedAt),
+    updatedAt: formatCalendarDate(task.updatedAt),
     sortOrder: task.sortOrder,
     assigneeIds: task.assignees.map((row) => row.user.id),
     assignees: task.assignees.map((row) => row.user),

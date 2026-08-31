@@ -1,4 +1,5 @@
 import {
+  Archive,
   Briefcase,
   CalendarDays,
   CirclePlay,
@@ -172,6 +173,7 @@ export const NAV_ITEMS = [
     icon: MessageSquare,
     leaderOnly: false,
   },
+  { href: "/archive", label: "คลังงาน", icon: Archive, leaderOnly: false },
 ] as const;
 
 export const TOTAL_TASKS_META = {

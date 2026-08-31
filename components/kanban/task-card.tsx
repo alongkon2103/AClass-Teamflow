@@ -3,6 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Archive,
   CalendarDays,
   GripVertical,
   MessageSquare,
@@ -11,6 +12,7 @@ import {
 import { PriorityBadge } from "@/components/shared/badges";
 import { Avatar } from "@/components/shared/avatar";
 import { formatThaiDate, isOverdue } from "@/lib/format";
+import { daysUntilArchive } from "@/lib/archive";
 import { cn } from "@/lib/utils";
 import type { BoardTaskView } from "./types";
 
@@ -22,6 +24,12 @@ export function TaskCardBody({
   today: string;
 }) {
   const overdue = isOverdue(task.dueDate, task.status, today);
+  const archiveIn = daysUntilArchive({
+    status: task.status,
+    completedAt: task.completedAt,
+    lastTouched: task.updatedAt,
+    today,
+  });
 
   return (
     <>
@@ -72,12 +80,25 @@ export function TaskCardBody({
         ) : null}
       </div>
 
-      {task.progressCount > 0 ? (
-        <p className="text-muted-foreground mt-2 inline-flex items-center gap-1.5 text-[11px]">
-          <MessageSquare size={12} strokeWidth={2} />
-          {task.progressCount} อัปเดต
-        </p>
-      ) : null}
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {task.progressCount > 0 ? (
+          <p className="text-muted-foreground inline-flex items-center gap-1.5 text-[11px]">
+            <MessageSquare size={12} strokeWidth={2} />
+            {task.progressCount} อัปเดต
+          </p>
+        ) : null}
+
+        {/* Finished work leaves the board on its own; say when, so it is not
+            a surprise when the card is gone tomorrow. */}
+        {archiveIn !== null ? (
+          <p className="text-muted-foreground inline-flex items-center gap-1.5 text-[11px]">
+            <Archive size={12} strokeWidth={2} />
+            {archiveIn === 1
+              ? "เข้าคลังพรุ่งนี้"
+              : `เข้าคลังในอีก ${archiveIn} วัน`}
+          </p>
+        ) : null}
+      </div>
     </>
   );
 }

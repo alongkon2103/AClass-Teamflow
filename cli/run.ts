@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { ForbiddenError } from "@/lib/permissions";
 import { NotFoundError } from "@/server/services/task";
+import { sweepFinishedTasks } from "@/server/services/archive";
 import { flagValue, parseArgs } from "./args";
 import {
   clearSession,
@@ -73,6 +74,12 @@ export async function run(argv: string[]): Promise<number> {
   }
 
   try {
+    // The CLI never renders the web layout, so it runs the archive sweep
+    // itself; otherwise a listing here could still show work the board hides.
+    if (command !== "login" && command !== "logout") {
+      await sweepFinishedTasks(db);
+    }
+
     // No command at all opens the keyboard-driven board, which is the fastest
     // way in; `teamflow help` still lists everything.
     if (!command || command === "ui") {

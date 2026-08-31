@@ -114,6 +114,7 @@ export async function listBoardTasks(
       startDate: true,
       dueDate: true,
       completedAt: true,
+      updatedAt: true,
       sortOrder: true,
       gameId: true,
       gameNote: true,
